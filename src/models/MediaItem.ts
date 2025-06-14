@@ -50,7 +50,6 @@ const mediaItemSchema = new Schema<IMediaItem>({
   userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
   uri: { type: String, required: true },
   type: { type: String, enum: ['photo', 'video'], required: true, index: true },
-  timestamp: { type: Number, required: true, index: true },
   aspectRatio: { type: Number },
   title: { type: String },
   description: { type: String },

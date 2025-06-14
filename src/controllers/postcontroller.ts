@@ -3,7 +3,12 @@ import { uploadtocloudinary } from '../cloudconfig.js';
 import MediaItem from '../models/MediaItem.js';
 import User from '../models/User.js';
 
-export const createposts = async (req: Request & { files?: Express.Multer.File[] }, res: Response) => {
+// Extend the Express Request type to include files
+interface MulterRequest extends Request {
+  files?: Express.Multer.File[];
+}
+
+export const createposts = async (req: MulterRequest, res: Response) => {
     try {
         if (!req.files || req.files.length === 0) {
             return res.status(400).json({ message: 'No files uploaded' });

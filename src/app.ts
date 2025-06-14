@@ -8,6 +8,7 @@ import cookieParser from 'cookie-parser';
 import { config } from './authConfig.js';
 import { authMiddleware } from './middlewares/authmiddleware.js';
 import authrouter from './routes/authroutes.js';
+import mediaProcessingRoutes from './routes/mediaProcessingRoutes.js';
 
 dotenv.config();
 
@@ -111,6 +112,11 @@ app.use('/api', (req, res, next) => {
 app.use('/api/auth', (req, res, next) => {
   authMiddleware(req, res, next);
 }, authrouter);
+
+// Media processing routes with auth middleware
+app.use('/api/processing', (req, res, next) => {
+  authMiddleware(req, res, next);
+}, mediaProcessingRoutes);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {

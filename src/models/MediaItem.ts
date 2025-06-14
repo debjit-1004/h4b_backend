@@ -27,6 +27,8 @@ export interface IMediaItem extends Document {
   geminiStory?: Record<string, string>;
   location?: ILocation;
   tags?: string[];
+  collections?: Types.ObjectId[]; // Reference to collections this media belongs to
+  featured: boolean; // Whether this item is featured
   createdAt: Date;
   updatedAt: Date;
 }
@@ -56,7 +58,9 @@ const mediaItemSchema = new Schema<IMediaItem>({
   comments: [commentSchema],
   geminiStory: { type: Schema.Types.Mixed },
   location: locationSchema,
-  tags: [{ type: String, index: true }],
+  tags: [{ type: String, index: true }], // Legacy tags field - keeping for backward compatibility
+  collections: [{ type: Schema.Types.ObjectId, ref: 'Collection', index: true }],
+  featured: { type: Boolean, default: false, index: true }
 }, { timestamps: true });
 
 export default model<IMediaItem>('MediaItem', mediaItemSchema);

@@ -1,9 +1,9 @@
 import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from '@google/generative-ai';
-import fs from 'fs';
-import os from 'os';
-import path from 'path';
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
 import { fileTypeFromBuffer } from 'file-type';
-import fetch from 'node-fetch';
+import fetch from 'node-fetch'; // This should work with esModuleInterop for node-fetch v2
 import { Types } from 'mongoose';
 import Tag from '../models/Tag.js';
 

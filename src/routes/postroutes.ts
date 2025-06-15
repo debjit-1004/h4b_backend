@@ -1,7 +1,7 @@
 import { Router, Request, Response } from "express";
 const router = Router();
-import multer from "multer";
-const upload = multer({ dest: 'uploads/' })
+import multer from "multer"; // Changed import
+const upload = multer({ dest: 'uploads/' });
 import { createposts } from "../controllers/postcontroller.js";
 
 const asyncHandler = (fn: any) => (req: any, res: any, next: any) => {

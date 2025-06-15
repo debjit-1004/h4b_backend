@@ -1,5 +1,5 @@
-import express, { Request, Response, NextFunction } from 'express';
-import dotenv from 'dotenv';
+import express, { Request, Response, NextFunction } from 'express'; // Default import for express, named imports for types
+import * as dotenv from 'dotenv';
 import morgan from 'morgan';
 import cors from 'cors';
 import router from './routes/index.js';
@@ -28,8 +28,11 @@ app.use(cookieParser());
 class ExpressCookieStorage extends CookieStorage {
   constructor(private req: Request, private res: Response) {
     super({
-      secure: false
-    })
+      // secure: process.env.NODE_ENV === 'production', // Example: make secure based on env
+      secure: false, // Keep as per original for now
+      // httpOnly: true, // Recommended for security
+      // sameSite: 'lax' // Recommended for security
+    });
   }
 
   async get(key: string): Promise<string | null> {
@@ -61,33 +64,53 @@ class ExpressCookieStorage extends CookieStorage {
   }
 
   async set(key: string, value: string): Promise<void> {
-    await this.res.cookie(key, value, this.settings);
+    // Use this.settings from the base class
+    this.res.cookie(key, value, this.settings);
   }
 
   async delete(key: string): Promise<void> {
+    // Use this.settings from the base class
     this.res.clearCookie(key, this.settings);
   }
 }
 
 // Add Civic Auth middleware before routes
-app.use((req, res, next) => {
-  try {
-    req.storage = new ExpressCookieStorage(req, res);
-    
-    // Validate config before creating CivicAuth
-    if (!config.clientId) {
-      console.error('Config validation failed - clientId is missing');
-      return next(new Error('Civic Auth configuration error'));
+// Add CivicAuth properties via type intersection in middleware, not by extending Request interface
+type CivicAuthRequest = Request & {
+  storage?: ExpressCookieStorage;
+  civicAuth?: CivicAuth;
+};
+
+interface CivicAuthResponse extends Response {}
+
+app.use(
+  '/',
+  ((
+    req: CivicAuthRequest,
+    res: CivicAuthResponse,
+    next: NextFunction
+  ) => {
+    try {
+      req.storage = new ExpressCookieStorage(req, res);
+
+      // Validate config before creating CivicAuth
+      if (!config.clientId) {
+        console.error('Config validation failed - clientId is missing');
+        return next(new Error('Civic Auth configuration error'));
+      }
+
+      req.civicAuth = new CivicAuth(req.storage, config);
+      console.log(
+        'Civic Auth initialized successfully with client ID:',
+        config.clientId?.substring(0, 10) + '...'
+      );
+      next();
+    } catch (error) {
+      console.error('Error initializing Civic Auth:', error);
+      next(error);
     }
-    
-    req.civicAuth = new CivicAuth(req.storage, config);
-    console.log('Civic Auth initialized successfully with client ID:', config.clientId?.substring(0, 10) + '...');
-    next();
-  } catch (error) {
-    console.error('Error initializing Civic Auth:', error);
-    next(error);
-  }
-});
+  }) as express.RequestHandler
+);
 
 // Public routes
 app.get('/', (req: Request, res: Response) => {
@@ -110,24 +133,64 @@ app.get('/health', (req: Request, res: Response) => {
 app.use('/auth', authrouter);
 
 // Protected API routes that require authentication
-app.use('/api', (req, res, next) => {
-  authMiddleware(req, res, next);
-}, router);
+interface ProtectedApiRequest extends Request {
+  user?: any;
+}
+
+interface ProtectedApiResponse<T = any> extends Response<T> {}
+
+app.use(
+  '/api',
+  (req: ProtectedApiRequest, res: ProtectedApiResponse, next: NextFunction) => {
+    authMiddleware(req, res, next);
+  },
+  router
+);
 
 // Auth-protected routes for authenticated users only
-app.use('/api/auth', (req, res, next) => {
-  authMiddleware(req, res, next);
-}, authrouter);
+interface AuthProtectedRequest extends Request {
+  user?: any;
+}
+
+interface AuthProtectedResponse<T = any> extends Response<T> {}
+
+app.use(
+  '/api/auth',
+  (req: AuthProtectedRequest, res: AuthProtectedResponse, next: NextFunction) => {
+    authMiddleware(req, res, next);
+  },
+  authrouter
+);
 
 // Post routes with auth middleware - directly mounted
-app.use('/api/posts', (req, res, next) => {
-  // authMiddleware(req, res, next);
-}, postroutes);
+interface AuthenticatedRequest extends Request {
+  user?: any;
+}
+
+interface TypedResponse<T = any> extends Response<T> {}
+
+app.use(
+  '/api/posts',
+  (req: AuthenticatedRequest, res: TypedResponse, next: NextFunction) => {
+    // authMiddleware(req, res, next);
+  },
+  postroutes
+);
 
 // Media processing routes with auth middleware
-app.use('/api/processing', (req, res, next) => {
-  authMiddleware(req, res, next);
-}, mediaProcessingRoutes);
+interface MediaProcessingRequest extends Request {
+  user?: any;
+}
+
+interface MediaProcessingResponse<T = any> extends Response<T> {}
+
+app.use(
+  '/api/processing',
+  (req: MediaProcessingRequest, res: MediaProcessingResponse, next: NextFunction) => {
+    authMiddleware(req, res, next);
+  },
+  mediaProcessingRoutes
+);
 
 // Global error handler
 app.use((error: Error, req: Request, res: Response, next: NextFunction) => {

@@ -1,5 +1,5 @@
-import { v2 as cloudinary } from 'cloudinary'
-import fs from 'fs';
+import { v2 as cloudinary } from 'cloudinary';
+import * as fs from 'fs';
 
 // Cloudinary configuration 
 cloudinary.config({ 

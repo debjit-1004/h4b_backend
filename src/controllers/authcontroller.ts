@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import User from '../models/User.js';
-import bcrypt from 'bcrypt';
+import * as bcrypt from 'bcrypt';
 
 /**
  * Handle user registration/login after successful Civic Auth

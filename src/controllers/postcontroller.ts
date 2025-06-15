@@ -5,7 +5,7 @@ import User from '../models/User.js';
 
 // Extend the Express Request type to include files
 interface MulterRequest extends Request {
-  files?: Express.Multer.File[];
+  files?: Express.Multer.File[]; // This should work if @types/multer is resolved
 }
 
 export const createposts = async (req: MulterRequest, res: Response) => {

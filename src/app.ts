@@ -9,7 +9,8 @@ import { config } from './authConfig.js';
 import { authMiddleware } from './middlewares/authmiddleware.js';
 import authrouter from './routes/authroutes.js';
 import mediaProcessingRoutes from './routes/mediaProcessingRoutes.js';
-import postroutes from './routes/postroutes.js';
+import mediaItemRoutes from './routes/mediaItemRoutes.js';
+import postRoutes from './routes/postRoutes.js';
 import { connectDB } from './dbconfig/dbconnect.js';
 
 dotenv.config();
@@ -133,64 +134,29 @@ app.get('/health', (req: Request, res: Response) => {
 app.use('/auth', authrouter);
 
 // Protected API routes that require authentication
-interface ProtectedApiRequest extends Request {
-  user?: any;
-}
-
-interface ProtectedApiResponse<T = any> extends Response<T> {}
-
-app.use(
-  '/api',
-  (req: ProtectedApiRequest, res: ProtectedApiResponse, next: NextFunction) => {
-    authMiddleware(req, res, next);
-  },
-  router
-);
+app.use('/api', (req, res, next) => {
+  authMiddleware(req, res, next);
+}, router);
 
 // Auth-protected routes for authenticated users only
-interface AuthProtectedRequest extends Request {
-  user?: any;
-}
+app.use('/api/auth', (req, res, next) => {
+  authMiddleware(req, res, next);
+}, authrouter);
 
-interface AuthProtectedResponse<T = any> extends Response<T> {}
+// Media item routes with auth middleware - directly mounted
+app.use('/api/mediaItems', (req, res, next) => {
+  authMiddleware(req, res, next);
+}, mediaItemRoutes);
 
-app.use(
-  '/api/auth',
-  (req: AuthProtectedRequest, res: AuthProtectedResponse, next: NextFunction) => {
-    authMiddleware(req, res, next);
-  },
-  authrouter
-);
-
-// Post routes with auth middleware - directly mounted
-interface AuthenticatedRequest extends Request {
-  user?: any;
-}
-
-interface TypedResponse<T = any> extends Response<T> {}
-
-app.use(
-  '/api/posts',
-  (req: AuthenticatedRequest, res: TypedResponse, next: NextFunction) => {
-    // authMiddleware(req, res, next);
-  },
-  postroutes
-);
+// Post routes with auth middleware
+app.use('/api/posts', (req, res, next) => {
+  authMiddleware(req, res, next);
+}, postRoutes);
 
 // Media processing routes with auth middleware
-interface MediaProcessingRequest extends Request {
-  user?: any;
-}
-
-interface MediaProcessingResponse<T = any> extends Response<T> {}
-
-app.use(
-  '/api/processing',
-  (req: MediaProcessingRequest, res: MediaProcessingResponse, next: NextFunction) => {
-    authMiddleware(req, res, next);
-  },
-  mediaProcessingRoutes
-);
+app.use('/api/processing', (req, res, next) => {
+  authMiddleware(req, res, next);
+}, mediaProcessingRoutes);
 
 // Global error handler
 app.use((error: Error, req: Request, res: Response, next: NextFunction) => {

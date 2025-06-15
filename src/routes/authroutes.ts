@@ -165,9 +165,11 @@ router.get('/', asyncHandler(async (req: Request, res: Response) => {
       'GET /auth/login',
       'GET /auth/logout', 
       'GET /auth/callback',
-      'GET /auth/status',
+      'GET /api/auth/status',
       'GET /api/auth/me',
-      'GET /api/auth/test'
+      'GET /api/auth/test',
+      'UPDATE /api/auth/profile',
+      'GET /api/auth/admin/hello'
     ],
     civicAuthConfigured: !!req.civicAuth
   });

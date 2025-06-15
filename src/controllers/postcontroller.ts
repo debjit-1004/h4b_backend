@@ -29,10 +29,14 @@ export const createposts = async (req: MulterRequest, res: Response) => {
         }
 
         const posts = [];
+        console.log(`Received ${req.files.length} files for upload.`);
         
         // Upload all files to Cloudinary
         for (let i = 0; i < req.files.length; i++) {
             const cloudinaryresult = await uploadtocloudinary(req.files[i].path);
+            console.log(`Processing file ${i}:`, req.files[i].originalname);
+            console.log(`Cloudinary result for file ${i}:`, req.files[i].path);
+            console.log(`Cloudinary upload result for file ${i}:`, cloudinaryresult);
             console.log(`For file ${i} --- ${cloudinaryresult.message}`);
             
             if (cloudinaryresult.message !== "Success" || !cloudinaryresult.result?.url) {

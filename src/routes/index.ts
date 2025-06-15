@@ -1,11 +1,14 @@
 import { Router } from 'express';
+import postroutes from './postroutes.js';
 
 const router = Router();
 
-// TODO: Add route imports and use them here
-
+// Health check route
 router.get('/health', (req, res) => {
   res.json({ status: 'ok' });
 });
+
+// Include post routes (they will be available at /api/posts/*)
+router.use('/posts', postroutes);
 
 export default router;

@@ -9,10 +9,15 @@ import { config } from './authConfig.js';
 import { authMiddleware } from './middlewares/authmiddleware.js';
 import authrouter from './routes/authroutes.js';
 import mediaProcessingRoutes from './routes/mediaProcessingRoutes.js';
+import postroutes from './routes/postroutes.js';
+import { connectDB } from './dbconfig/dbconnect.js';
 
 dotenv.config();
 
 const app = express();
+
+// Connect to MongoDB
+connectDB();
 
 // Middleware
 app.use(express.json());
@@ -66,11 +71,17 @@ class ExpressCookieStorage extends CookieStorage {
 
 // Add Civic Auth middleware before routes
 app.use((req, res, next) => {
-  // add an instance of the cookie storage and civicAuth api to each request
   try {
     req.storage = new ExpressCookieStorage(req, res);
+    
+    // Validate config before creating CivicAuth
+    if (!config.clientId) {
+      console.error('Config validation failed - clientId is missing');
+      return next(new Error('Civic Auth configuration error'));
+    }
+    
     req.civicAuth = new CivicAuth(req.storage, config);
-    console.log('Civic Auth initialized successfully with client ID:', config.clientId);
+    console.log('Civic Auth initialized successfully with client ID:', config.clientId?.substring(0, 10) + '...');
     next();
   } catch (error) {
     console.error('Error initializing Civic Auth:', error);
@@ -78,47 +89,67 @@ app.use((req, res, next) => {
   }
 });
 
-//login
-app.get('/login', async (req: Request, res: Response) => {
-  const url = await req.civicAuth.buildLoginUrl();
-
-  res.redirect(url.toString());
-});
-
-//logout
-app.get('/auth/logout', async (req: Request, res: Response) => {
-  const url = await req.civicAuth.buildLogoutRedirectUrl();
-  res.redirect(url.toString());
-});
-
-//callback
-app.get('/auth/callback', async (req: Request, res: Response) => {
-  const { code, state } = req.query as { code: string; state: string };
-
-  await req.civicAuth.resolveOAuthAccessCode(code, state);
-  res.redirect('/');
-});
-
 // Public routes
-app.get('/', (req : Request, res : Response) => {
-  res.json({ message: 'Sorbonash backend running' });
+app.get('/', (req: Request, res: Response) => {
+  res.json({ 
+    message: 'Sorbonash backend running',
+    status: 'ok',
+    timestamp: new Date().toISOString()
+  });
 });
 
-// Apply middleware to specific routes that need authentication
+app.get('/health', (req: Request, res: Response) => {
+  res.json({ 
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime()
+  });
+});
+
+// Authentication routes (public - no auth middleware needed for login/logout/callback)
+app.use('/auth', authrouter);
+
+// Protected API routes that require authentication
 app.use('/api', (req, res, next) => {
   authMiddleware(req, res, next);
 }, router);
 
+// Auth-protected routes for authenticated users only
 app.use('/api/auth', (req, res, next) => {
   authMiddleware(req, res, next);
 }, authrouter);
+
+// Post routes with auth middleware - directly mounted
+app.use('/api/posts', (req, res, next) => {
+  // authMiddleware(req, res, next);
+}, postroutes);
 
 // Media processing routes with auth middleware
 app.use('/api/processing', (req, res, next) => {
   authMiddleware(req, res, next);
 }, mediaProcessingRoutes);
 
+// Global error handler
+app.use((error: Error, req: Request, res: Response, next: NextFunction) => {
+  console.error('Global error handler:', error);
+  res.status(500).json({
+    error: 'Internal server error',
+    message: error.message,
+    ...(process.env.NODE_ENV === 'development' && { stack: error.stack })
+  });
+});
+
+// 404 handler
+app.use('*', (req: Request, res: Response) => {
+  res.status(404).json({
+    error: 'Route not found',
+    path: req.originalUrl,
+    method: req.method
+  });
+});
+
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
 });

@@ -1,4 +1,4 @@
-import { Request, Response, Router} from 'express';
+import { Request, Response, Router } from 'express';
 import { 
   handleCivicAuthSuccess, 
   handleLogout, 
@@ -8,8 +8,13 @@ import {
 
 const router = Router();
 
+// Async handler utility
+const asyncHandler = (fn: any) => (req: Request, res: Response, next: any) => {
+  Promise.resolve(fn(req, res, next)).catch(next);
+};
+
 // Login route - Build and redirect to Civic Auth login URL
-router.get('/login', async (req: Request, res: Response) => {
+router.get('/login', asyncHandler(async (req: Request, res: Response) => {
   try {
     const url = await req.civicAuth.buildLoginUrl();
     res.redirect(url.toString());
@@ -20,10 +25,10 @@ router.get('/login', async (req: Request, res: Response) => {
       details: error instanceof Error ? error.message : String(error)
     });
   }
-});
+}));
 
 // Logout route - Handle internal logout then redirect to Civic Auth logout
-router.get('/logout', async (req: Request, res: Response) => {
+router.get('/logout', asyncHandler(async (req: Request, res: Response) => {
   try {
     // Handle our internal logout logic first
     await handleLogout(req, res);
@@ -42,10 +47,10 @@ router.get('/logout', async (req: Request, res: Response) => {
       });
     }
   }
-});
+}));
 
 // OAuth callback route - Handle the OAuth response from Civic and register user
-router.get('/callback', async (req: Request, res: Response) => {
+router.get('/callback', asyncHandler(async (req: Request, res: Response) => {
   try {
     const { code, state } = req.query as { code: string; state: string };
     
@@ -70,10 +75,10 @@ router.get('/callback', async (req: Request, res: Response) => {
       });
     }
   }
-});
+}));
 
 // Admin hello route (requires authentication)
-router.get('/admin/hello', async (req: Request, res: Response) => {
+router.get('/admin/hello', asyncHandler(async (req: Request, res: Response) => {
   try {
     const user = await req.civicAuth.getUser();
     res.json({
@@ -87,10 +92,10 @@ router.get('/admin/hello', async (req: Request, res: Response) => {
       details: error instanceof Error ? error.message : String(error)
     });
   }
-});
+}));
 
 // Test endpoint for Civic Auth (requires authentication)
-router.get('/test', async (req: Request, res: Response) => {
+router.get('/test', asyncHandler(async (req: Request, res: Response) => {
   try {
     // Debug information
     const cookieHeader = req.headers.cookie;
@@ -128,16 +133,14 @@ router.get('/test', async (req: Request, res: Response) => {
       stack: error instanceof Error ? error.stack : undefined
     });
   }
-});
+}));
 
-// Get current user info (requires authentication)
-router.get('/me', getCurrentUser);
-
-// Update user profile (requires authentication)
-router.put('/profile', updateUserProfile);
+// User profile endpoints
+router.get('/me', asyncHandler(getCurrentUser));
+router.put('/profile', asyncHandler(updateUserProfile));
 
 // Check authentication status (public route)
-router.get('/status', async (req: Request, res: Response) => {
+router.get('/status', asyncHandler(async (req: Request, res: Response) => {
   try {
     const isLoggedIn = await req.civicAuth.isLoggedIn();
     res.json({
@@ -151,10 +154,10 @@ router.get('/status', async (req: Request, res: Response) => {
       error: 'Failed to check authentication status'
     });
   }
-});
+}));
 
 // Add a root auth route for debugging
-router.get('/', async (req: Request, res: Response) => {
+router.get('/', asyncHandler(async (req: Request, res: Response) => {
   res.json({
     message: 'Auth routes are working',
     availableRoutes: [
@@ -167,6 +170,6 @@ router.get('/', async (req: Request, res: Response) => {
     ],
     civicAuthConfigured: !!req.civicAuth
   });
-});
+}));
 
 export default router;

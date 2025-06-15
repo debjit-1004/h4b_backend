@@ -16,5 +16,5 @@ console.log('Civic Auth Client ID loaded:', clientId);
 export const config = {
     clientId: clientId,
     redirectUrl: 'http://localhost:5000/auth/callback',
-    postLogoutRedirectUrl: 'http://localhost:5000/'
+    postLogoutRedirectUrl: 'http://localhost:8081/(auth)/login' // Updated to point to frontend login
 };

@@ -30,16 +30,17 @@ router.get('/login', asyncHandler(async (req: Request, res: Response) => {
 // Logout route - Handle internal logout then redirect to Civic Auth logout
 router.get('/logout', asyncHandler(async (req: Request, res: Response) => {
   try {
-    // Handle our internal logout logic first
+    // Handle our internal logout logic first.
+    // This function should now be async and not send a response itself.
     await handleLogout(req, res);
     
-    // Then redirect to Civic Auth logout if response hasn't been sent
+    // Then redirect to Civic Auth logout if response hasn't been sent by handleLogout (e.g. due to critical error)
     if (!res.headersSent) {
       const url = await req.civicAuth.buildLogoutRedirectUrl();
       res.redirect(url.toString());
     }
   } catch (error) {
-    console.error('Error during logout:', error);
+    console.error('Error during logout route processing:', error);
     if (!res.headersSent) {
       res.status(500).json({
         error: 'Failed to logout',

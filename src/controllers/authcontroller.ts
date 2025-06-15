@@ -87,37 +87,46 @@ export const handleCivicAuthSuccess = async (req: Request, res: Response) => {
  * Handle user logout
  * Clean up any additional user session data if needed
  */
-export const handleLogout = async (req: Request, res: Response) => {
+export const handleLogout = async (req: Request, res: Response): Promise<void> => {
   try {
     // Get user info before logout for logging
-    const civicUser = await req.civicAuth.getUser();
+    // This might fail if Civic session is already invalidated, so handle potential errors.
+    let userEmail: string | undefined;
+    try {
+      const civicUser = await req.civicAuth.getUser();
+      userEmail = civicUser?.email;
+    } catch (e) {
+      console.warn('Could not retrieve Civic user during logout, possibly already logged out from Civic.', e);
+    }
     
-    if (civicUser?.email) {
-      console.log(`User logged out: ${civicUser.email}`);
+    if (userEmail) {
+      console.log(`User logging out: ${userEmail}`);
       
       // Optional: Update user's last activity
       try {
         await User.findOneAndUpdate(
-          { email: civicUser.email },
+          { email: userEmail },
           { lastLogout: new Date() }
         );
       } catch (updateError) {
         console.error('Error updating user logout time:', updateError);
         // Don't fail the logout for this
       }
+    } else {
+      console.log('Logout initiated for a user not identified via Civic session or session already cleared.');
     }
 
-    return res.status(200).json({
-      message: 'Logout successful',
-      timestamp: new Date().toISOString()
-    });
+    // Do not send a response from here. The caller (in authroutes.ts) will handle the redirect.
+    // If a critical error occurs that must stop the logout, throw an error.
+    // For example: if (!req.civicAuth) throw new Error("CivicAuth not available");
 
   } catch (error) {
-    console.error('Error during logout:', error);
-    return res.status(500).json({
-      error: 'Error during logout',
-      details: error instanceof Error ? error.message : 'Unknown error'
-    });
+    console.error('Error during internal logout steps:', error);
+    // Re-throw critical errors to be caught by the asyncHandler in authroutes.ts
+    if (error instanceof Error && error.message.includes("CivicAuth not available")) {
+        throw error;
+    }
+    // For other errors, log them but allow the Civic logout redirect to proceed if possible.
   }
 };
 

@@ -7,6 +7,7 @@ export interface ITag extends Document {
   createdBy?: Schema.Types.ObjectId;
   isSystemGenerated: boolean;
   useCount: number;
+  vectorEmbedding?: number[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -37,6 +38,11 @@ const tagSchema = new Schema<ITag>({
   useCount: { 
     type: Number, 
     default: 0 
+  },
+  vectorEmbedding: {
+    type: [Number],
+    default: undefined,
+    index: false
   }
 }, { timestamps: true });
 

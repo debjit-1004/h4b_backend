@@ -31,6 +31,10 @@ export interface IMediaItem extends Document {
   featured: boolean; // Whether this item is featured
   createdAt: Date;
   updatedAt: Date;
+  visualEmbedding?: number[];
+  textEmbedding?: number[];
+  multimodalEmbedding?: number[];
+  culturalEmbedding?: number[];
 }
 
 const commentSchema = new Schema<IComment>({
@@ -60,7 +64,11 @@ const mediaItemSchema = new Schema<IMediaItem>({
   location: locationSchema,
   tags: [{ type: String, index: true }], // Legacy tags field - keeping for backward compatibility
   collections: [{ type: Schema.Types.ObjectId, ref: 'Collection', index: true }],
-  featured: { type: Boolean, default: false, index: true }
+  featured: { type: Boolean, default: false, index: true },
+  visualEmbedding: { type: [Number], default: undefined, index: false },
+  textEmbedding: { type: [Number], default: undefined, index: false },
+  multimodalEmbedding: { type: [Number], default: undefined, index: false },
+  culturalEmbedding: { type: [Number], default: undefined, index: false },
 }, { timestamps: true });
 
 export default model<IMediaItem>('MediaItem', mediaItemSchema);

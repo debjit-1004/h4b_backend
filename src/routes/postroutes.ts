@@ -5,10 +5,7 @@ const upload = multer({ dest: 'uploads/' })
 import { 
   createposts, 
   getPosts, 
-  generatePostSummaryEndpoint,
-  createCommunityEvent,
-  generateEventSummary,
-  generateCollectionSummary
+  generatePostSummaryEndpoint
 } from "../controllers/postcontroller.js";
 import { authMiddleware } from "../middlewares/authmiddleware.js";
 
@@ -39,14 +36,5 @@ router.get("/", asyncHandler(getPosts));
 
 // Generate summary for existing post (protected)
 router.get("/:postId/generate-summary", withAuth(generatePostSummaryEndpoint));
-
-// Create community event (protected)
-router.post("/events", withAuth(createCommunityEvent));
-
-// Generate summary for community event (protected)
-router.post("/events/:eventId/generate-summary", withAuth(generateEventSummary));
-
-// Generate collection summary for multiple posts (protected)
-router.post("/collections/generate-summary", withAuth(generateCollectionSummary));
 
 export default router;

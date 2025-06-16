@@ -6,11 +6,14 @@ import { fileTypeFromBuffer } from 'file-type';
 import fetch from 'node-fetch'; // This should work with esModuleInterop for node-fetch v2
 import { Types } from 'mongoose';
 import Tag from '../models/Tag.js';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 // Initialize Gemini AI with API key
 const apiKey = process.env.GEMINI_API_KEY;
 const genAI = new GoogleGenerativeAI(apiKey || '');
-const MODEL_NAME = 'gemini-pro-vision';
+const MODEL_NAME = process.env.VISION_MODEL_NAME!;
 
 // Pre-defined Bengali culture related tags
 // These represent specific aspects of Bengali culture, arts, traditions, etc.

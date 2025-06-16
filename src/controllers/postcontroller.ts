@@ -14,8 +14,10 @@ import {
   MediaItem as GeminiMediaItem,
   Post as GeminiPost,
   CommunityEvent as GeminiCommunityEvent,
-  SummaryOptions
+  SummaryOptions,
+  generateSummaryType
 } from '../utils/geminiSummary.js';
+import mongoose from 'mongoose';
 
 // Extend the Express Request type to include files
 interface MulterRequest extends Request {
@@ -146,8 +148,11 @@ export const createposts = async (req: MulterRequest, res: Response) => {
 
         const savedPost = await newPost.save();
 
+        const summaryType = await generateSummaryType(createdMediaItems);
+        console.log(`Determined summary type for post: ${summaryType}`);
+
         // Generate AI summary for the post (async, don't block response)
-        generatePostSummaryAsync(savedPost, createdMediaItems, req.body.summaryType || 'post');
+        generatePostSummaryAsync(savedPost, createdMediaItems, summaryType);
 
         res.status(201).json({
             message: 'Post created successfully',
@@ -166,7 +171,7 @@ export const createposts = async (req: MulterRequest, res: Response) => {
 };
 
 // Async function to generate and save post summary
-async function generatePostSummaryAsync(post: any, mediaItems: any[], summaryType: string = 'post') {
+async function generatePostSummaryAsync(post: any, mediaItems: any[], summaryType: string) {
     try {
         // Convert database models to Gemini interface format
         const geminiMediaItems: GeminiMediaItem[] = mediaItems.map(item => ({
@@ -357,9 +362,16 @@ export const getPosts = async (req: Request, res: Response) => {
 export const generatePostSummaryEndpoint = async (req: Request, res: Response) => {
     try {
         const { postId } = req.params;
-        const { summaryType = 'post', options = {} } = req.body;
+        if (!postId) {
+            return res.status(400).json({ message: 'Post ID is required' });
+        }
+        let summaryType;
 
         const post = await Post.findById(postId).populate('mediaItems');
+        if(post){
+            summaryType = await generateSummaryType(post.mediaItems);
+            console.log(`Determined summary type for post ${postId}: ${summaryType}`);
+        } 
         if (!post) {
             return res.status(404).json({ message: 'Post not found' });
         }
@@ -375,20 +387,19 @@ export const generatePostSummaryEndpoint = async (req: Request, res: Response) =
             return res.status(403).json({ message: 'Access denied' });
         }
         // Ensure both IDs are ObjectId for comparison
-        const mongoose = require('mongoose');
         const postUserId = typeof post.userId === 'object' && post.userId !== null && 'equals' in post.userId
             ? post.userId
             : new mongoose.Types.ObjectId(post.userId);
         const existingUserId = typeof existingUser._id === 'object' && existingUser._id !== null && 'equals' in existingUser._id
             ? existingUser._id
-            : new mongoose.Types.ObjectId(existingUser._id);
+            : new mongoose.Types.ObjectId(String(existingUser._id));
 
-        if (!postUserId.equals(existingUserId)) {
+        if (!postUserId.equals(String(existingUserId))) {
             return res.status(403).json({ message: 'Access denied' });
         }
 
         // Generate summary
-        await generatePostSummaryAsync(post, post.mediaItems, summaryType);
+        await generatePostSummaryAsync(post, post.mediaItems, summaryType as string);
 
         // Return updated post
         const updatedPost = await Post.findById(postId).populate('mediaItems');

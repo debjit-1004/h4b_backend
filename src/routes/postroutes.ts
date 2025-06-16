@@ -38,7 +38,7 @@ router.post("/createpost", upload.array('mediaFiles', 20), asyncHandler(createPo
 router.get("/", asyncHandler(getPosts));
 
 // Generate summary for existing post (protected)
-router.post("/:postId/generate-summary", withAuth(generatePostSummaryEndpoint));
+router.get("/:postId/generate-summary", withAuth(generatePostSummaryEndpoint));
 
 // Create community event (protected)
 router.post("/events", withAuth(createCommunityEvent));

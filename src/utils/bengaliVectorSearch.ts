@@ -675,7 +675,15 @@ export async function findSimilarMedia(options: {
  */
 export async function generatePostEmbeddings(postId: string) {
   try {
-    const post = await Post.findById(postId).populate('mediaItems');
+    // Type for populated media items
+    interface PopulatedMediaItem {
+      _id: mongoose.Types.ObjectId;
+      uri: string;
+      type: string;
+      [key: string]: any;
+    }
+
+    const post = await Post.findById(postId).populate<{ mediaItems: PopulatedMediaItem[] }>('mediaItems');
     if (!post) {
       throw new Error("Post not found");
     }

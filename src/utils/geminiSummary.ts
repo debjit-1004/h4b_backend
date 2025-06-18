@@ -1,10 +1,13 @@
 import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from '@google/generative-ai';
 import fetch from 'node-fetch';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 // Initialize Gemini AI with API key
 const apiKey = process.env.GEMINI_API_KEY;
 const genAI = new GoogleGenerativeAI(apiKey || '');
-const MODEL_NAME = 'gemini-1.5-pro';
+const MODEL_NAME = process.env.SUMMARY_MODEL_NAME!;
 
 // Safety settings for content generation
 const safetySettings = [
@@ -139,6 +142,11 @@ export async function generatePostSummary(
     
     // Prepare media parts
     const mediaParts = await prepareMediaParts(post.media);
+    if(mediaParts.length === 0) {
+      console.log('No media parts could be prepared for post summary');
+    }else{
+      console.log(`Prepared ${mediaParts.length} media parts for post summary`);
+    }
     
     // Prepare video URLs for text prompt
     const videoUrls = post.media
@@ -604,6 +612,78 @@ Format as JSON with fields: summary, attractions, recommendations, travelTips.`;
   }
 }
 
+/**
+ * Determine the best summary type for given media content
+ * Analyzes media content to classify it as cultural, creative, travel, or general post
+ */
+export async function generateSummaryType(
+  mediaItems: any[],
+): Promise<'post' | 'cultural' | 'creative' | 'travel'> {
+  try {
+    console.log('Determining content type for media items:', mediaItems.length);
+    if (mediaItems.length === 0) {
+      return 'post'; // Default summary type
+    }
+
+    // Filter and transform media items to match MediaItem interface
+    const formattedMediaItems: MediaItem[] = mediaItems
+      .filter(item => item && (item.uri || item.url))
+      .map(item => ({
+        url: item.url || item.uri, // Use url if available, otherwise use uri
+        type: (item.type === 'photo' || item.type === 'image') ? 'image' : 
+              (item.type === 'video') ? 'video' : 'image', // Default to image if type is invalid
+        description: item.description
+      }));
+
+    console.log('Formatted media items for content type analysis:', formattedMediaItems.length);
+    
+    if (formattedMediaItems.length === 0) {
+      return 'post'; // Default if no valid media items
+    }
+    
+    // Prepare media parts using the correctly formatted items
+    const mediaParts = await prepareMediaParts(formattedMediaItems.slice(0, 3));
+    
+    // Build prompt for content type classification
+    const prompt = `Analyze this media content and determine the most appropriate category.
+    
+  Choose ONE of the following categories that best fits this content:
+  1. CULTURAL - Historical artifacts, heritage items, traditional practices, religious/cultural ceremonies
+  2. CREATIVE - Artistic expressions, creative works, performances, aesthetic compositions
+  3. TRAVEL - Travel destinations, landmarks, tourism, location-based content, journeys
+  4. GENERAL - General content that doesn't fit strongly in the above categories
+
+  Return ONLY the single word category name in uppercase: CULTURAL, CREATIVE, TRAVEL, or GENERAL.`;
+
+    // Combine text and media parts
+    const parts = [{ text: prompt }, ...mediaParts];
+
+    const model = genAI.getGenerativeModel({ model: MODEL_NAME });
+    
+    const result = await model.generateContent({
+      contents: [{ role: 'user', parts }],
+      safetySettings
+    });
+    console.log('Content type generation result from gemini 1.5 flash model :', result);
+    const response = await result.response;
+    const text = response.text();
+
+    console.log('Content type response from geminiSummary.ts file : ', text);
+    
+    // Map the response to summary type
+    if (text.includes('CULTURAL')) return 'cultural';
+    if (text.includes('CREATIVE')) return 'creative';
+    if (text.includes('TRAVEL')) return 'travel';
+    
+    // Default to 'post' for GENERAL or any other response
+    return 'post';
+    
+  } catch (error) {
+    console.error('Error determining content type:', error);
+    return 'post'; // Default to 'post' on error
+  }
+}
+
 // Export all interfaces for use in other files
 export type {
   MediaItem,
@@ -611,3 +691,4 @@ export type {
   CommunityEvent,
   SummaryOptions
 };
+

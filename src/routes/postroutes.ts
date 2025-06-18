@@ -46,8 +46,17 @@ const asyncHandler = (fn: any) => (req: any, res: any, next: any) => {
 // CRUD Routes for Posts
 router.post("/", upload.array('attachments', 5), asyncHandler(createPost));
 router.get("/", asyncHandler(getPosts));
-router.get("/:id", asyncHandler(getPostById));
-router.put("/:id", upload.array('attachments', 5), asyncHandler(updatePost));
-router.delete("/:id", asyncHandler(deletePost));
+
+// Generate summary for existing post (protected)
+router.get("/:postId/generate-summary", withAuth(generatePostSummaryEndpoint));
+
+// Create community event (protected)
+router.post("/events", withAuth(createCommunityEvent));
+
+// Generate summary for community event (protected)
+router.post("/events/:eventId/generate-summary", withAuth(generateEventSummary));
+
+// Generate collection summary for multiple posts (protected)
+router.post("/collections/generate-summary", withAuth(generateCollectionSummary));
 
 export default router;

@@ -1,5 +1,5 @@
 import { MongoClient } from "mongodb";
-import getEmbeddings from "../dbutils/getEmbeddings";
+// import getEmbeddings from "../dbutils/getEmbeddings";
 
 export async function getQueryResults(userId : string, repoUrl : string, query : string){
     const client = new MongoClient(process.env.MONGODB_URI as string);
@@ -10,13 +10,13 @@ export async function getQueryResults(userId : string, repoUrl : string, query :
         const db = client.db("github-promax");
         const collection = db.collection("repoembeddingmodels");        
         
-        const queryVector = await getEmbeddings(query);
+        // const queryVector = await getEmbeddings(query);
 
         const pipeline = [
             {
                 "$vectorSearch" : {
                     "index" : "repoSummaryVectorIndex",
-                    "queryVector" : queryVector,
+                    // "queryVector" : queryVector,
                     "path" : "embeddings",
                     "filter" : {
                         "$and" : [

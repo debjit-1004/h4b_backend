@@ -10,6 +10,8 @@ import { authMiddleware } from './middlewares/authmiddleware.js';
 import authrouter from './routes/authroutes.js';
 import mediaProcessingRoutes from './routes/mediaProcessingRoutes.js';
 import postroutes from './routes/postroutes.js';
+import eventroutes from './routes/eventroutes.js';
+import collectionroutes from './routes/collectionroutes.js';
 import { connectDB } from './dbconfig/dbconnect.js';
 
 dotenv.config();
@@ -175,6 +177,24 @@ app.use(
     // authMiddleware(req, res, next);
   },
   postroutes
+);
+
+// Event routes
+app.use(
+  '/api/events',
+  (req: AuthenticatedRequest, res: TypedResponse, next: NextFunction) => {
+    // authMiddleware(req, res, next);
+  },
+  eventroutes
+);
+
+// Collection routes
+app.use(
+  '/api/collections',
+  (req: AuthenticatedRequest, res: TypedResponse, next: NextFunction) => {
+    // authMiddleware(req, res, next);
+  },
+  collectionroutes
 );
 
 // Media processing routes with auth middleware

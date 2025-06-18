@@ -27,24 +27,24 @@ db.posts.createSearchIndex({
       dynamic: false,
       fields: {
         textEmbedding: {
-          type: "vector",
+          type: "knnVector",
           dimensions: 768,
           similarity: "cosine",
         },
         multimodalEmbedding: {
-          type: "vector",
+          type: "knnVector",
           dimensions: 768,
           similarity: "cosine",
         },
         culturalEmbedding: {
-          type: "vector",
+          type: "knnVector",
           dimensions: 768,
           similarity: "cosine",
         },
-        userId: { type: "filter" },
-        tags: { type: "filter" },
-        visibility: { type: "filter" },
-        "aiSummary.summaryType": { type: "filter" },
+        userId: { type: "string" },
+        tags: { type: "string" },
+        visibility: { type: "string" },
+        "aiSummary.summaryType": { type: "string" },
       },
     },
   },
@@ -58,74 +58,56 @@ db.mediaitems.createSearchIndex({
       dynamic: false,
       fields: {
         visualEmbedding: {
-          type: "vector",
+          type: "knnVector",
           dimensions: 768,
           similarity: "cosine",
         },
         textEmbedding: {
-          type: "vector",
+          type: "knnVector",
           dimensions: 768,
           similarity: "cosine",
         },
         multimodalEmbedding: {
-          type: "vector",
+          type: "knnVector",
           dimensions: 768,
           similarity: "cosine",
         },
         culturalEmbedding: {
-          type: "vector",
+          type: "knnVector",
           dimensions: 768,
           similarity: "cosine",
         },
-        type: { type: "filter" },
-        tags: { type: "filter" },
-        userId: { type: "filter" },
+        type: { type: "string" },
+        tags: { type: "string" },
+        userId: { type: "string" },
       },
     },
   },
 });
 
-// 3. Create Event Vector Index
+// 3. Create Combined Vector Index for Events
+// Note: This is a combined index due to Atlas free tier limitations
 db.communityevents.createSearchIndex({
-  name: "bengaliEventVectorIndex",
+  name: "bengaliCombinedVectorIndex",
   definition: {
     mappings: {
       dynamic: false,
       fields: {
         textEmbedding: {
-          type: "vector",
+          type: "knnVector",
           dimensions: 768,
           similarity: "cosine",
         },
         culturalEmbedding: {
-          type: "vector",
+          type: "knnVector",
           dimensions: 768,
           similarity: "cosine",
         },
-        eventType: { type: "filter" },
-        tags: { type: "filter" },
-        culturalTags: { type: "filter" },
-        date: { type: "filter" },
-        visibility: { type: "filter" },
-      },
-    },
-  },
-});
-
-// 4. Create Tag Vector Index
-db.tags.createSearchIndex({
-  name: "bengaliTagVectorIndex",
-  definition: {
-    mappings: {
-      dynamic: false,
-      fields: {
-        vectorEmbedding: {
-          type: "vector",
-          dimensions: 768,
-          similarity: "cosine",
-        },
-        category: { type: "filter" },
-        isSystemGenerated: { type: "filter" },
+        eventType: { type: "string" },
+        tags: { type: "string" },
+        culturalTags: { type: "string" },
+        date: { type: "date" },
+        visibility: { type: "string" },
       },
     },
   },
@@ -297,3 +279,23 @@ The route will:
 Make sure you have your `GEMINI_API_KEY` environment variable set before testing!
 
 deployment push
+-H "Content-Type: application/json" \
+ -d '{
+"cloudinaryUrl": "https://res.cloudinary.com/dgyiptxfq/video/upload/v1750076823/BANGALIANA/lqdcirgpismmsisnee4q.mp4"
+}'
+
+```
+
+3. **Or use a tool like Postman/Insomnia** to test the endpoint
+
+The route will:
+
+1. Accept a Cloudinary video URL
+2. Use your `extractVideoHighlights` function to analyze the video with Gemini AI
+3. Extract peak moments and create a highlights video
+4. Return the path to the created highlights video
+
+Make sure you have your `GEMINI_API_KEY` environment variable set before testing!
+
+deployment push
+```

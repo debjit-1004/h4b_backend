@@ -4,9 +4,11 @@ import {
   searchSimilarPosts,
   searchSimilarEvents,
   searchSimilarMedia,
+  searchCulturallyRelevantContent,
   generatePostEmbeddingsController,
   generateMediaEmbeddingsController,
-  generateEventEmbeddingsController
+  generateEventEmbeddingsController,
+  batchProcessPostsController
 } from '../controllers/vectorSearchController.js';
 import { authMiddleware } from '../middlewares/authmiddleware.js';
 
@@ -34,10 +36,12 @@ router.post('/initialize', adminAuth, asyncHandler(initializeVectorIndexes));
 router.post('/search/posts', asyncHandler(searchSimilarPosts));
 router.post('/search/events', asyncHandler(searchSimilarEvents));
 router.post('/search/media', asyncHandler(searchSimilarMedia));
+router.post('/search/cultural', asyncHandler(searchCulturallyRelevantContent));
 
 // Generate embeddings (admin only)
 router.post('/embeddings/post/:postId', adminAuth, asyncHandler(generatePostEmbeddingsController));
 router.post('/embeddings/media/:mediaId', adminAuth, asyncHandler(generateMediaEmbeddingsController));
 router.post('/embeddings/event/:eventId', adminAuth, asyncHandler(generateEventEmbeddingsController));
+router.post('/embeddings/batch/posts', adminAuth, asyncHandler(batchProcessPostsController));
 
 export default router;

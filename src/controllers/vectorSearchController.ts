@@ -1,13 +1,17 @@
 import { Request, Response } from 'express';
-import {
-  initializeBengaliVectorIndexes,
+import { createAllVectorIndexes } from '../utils/bengaliVectorIndexes.js';
+import { 
   findSimilarPosts,
   findSimilarEvents,
   findSimilarMedia,
+  findCulturalContent
+} from '../utils/bengaliVectorQueries.js';
+import { 
   generatePostEmbeddings,
   generateMediaEmbeddings,
-  generateEventEmbeddings
-} from '../utils/bengaliVectorSearch.js';
+  generateEventEmbeddings,
+  batchGeneratePostEmbeddings 
+} from '../utils/bengaliVectorGenerator.js';
 
 /**
  * Initialize vector indexes for Bengali Heritage platform
@@ -15,13 +19,12 @@ import {
 export const initializeVectorIndexes = async (req: Request, res: Response) => {
   try {
     // Verify admin permissions
-    // This is a placeholder - implement proper authorization check
     const user = await req.civicAuth?.getUser();
     if (!user) {
       return res.status(401).json({ message: 'Authentication required' });
     }
     
-    const result = await initializeBengaliVectorIndexes();
+    const result = await createAllVectorIndexes();
     
     if (result.success) {
       return res.status(200).json({
@@ -177,6 +180,46 @@ export const searchSimilarMedia = async (req: Request, res: Response) => {
 };
 
 /**
+ * Find culturally relevant Bengali content
+ */
+export const searchCulturallyRelevantContent = async (req: Request, res: Response) => {
+  try {
+    const { 
+      query,
+      culturalTheme,
+      includeEvents = true,
+      includePosts = true,
+      includeMedia = true,
+      limit = 15
+    } = req.body;
+    
+    // Validate request
+    if (!query) {
+      return res.status(400).json({ 
+        message: 'Query is required' 
+      });
+    }
+    
+    const results = await findCulturalContent({
+      query,
+      culturalTheme,
+      includeEvents: includeEvents === true || includeEvents === 'true',
+      includePosts: includePosts === true || includePosts === 'true',
+      includeMedia: includeMedia === true || includeMedia === 'true',
+      limit: Number(limit)
+    });
+    
+    res.status(200).json(results);
+  } catch (error) {
+    console.error('Error finding culturally relevant content:', error);
+    res.status(500).json({
+      message: 'Server error',
+      error: error instanceof Error ? error.message : String(error)
+    });
+  }
+};
+
+/**
  * Generate embeddings for a post
  */
 export const generatePostEmbeddingsController = async (req: Request, res: Response) => {
@@ -268,6 +311,28 @@ export const generateEventEmbeddingsController = async (req: Request, res: Respo
     }
   } catch (error) {
     console.error('Error generating event embeddings:', error);
+    res.status(500).json({
+      message: 'Server error',
+      error: error instanceof Error ? error.message : String(error)
+    });
+  }
+};
+
+/**
+ * Batch process posts to generate embeddings
+ */
+export const batchProcessPostsController = async (req: Request, res: Response) => {
+  try {
+    const { limit = 20 } = req.body;
+    
+    const result = await batchGeneratePostEmbeddings(Number(limit));
+    
+    res.status(200).json({
+      message: `Processed ${result.successful} posts successfully, ${result.failed} failed`,
+      ...result
+    });
+  } catch (error) {
+    console.error('Error batch processing posts:', error);
     res.status(500).json({
       message: 'Server error',
       error: error instanceof Error ? error.message : String(error)

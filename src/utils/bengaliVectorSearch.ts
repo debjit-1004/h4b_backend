@@ -218,7 +218,13 @@ async function initializeTagVectorIndex(db: any) {
     
     // Check if index already exists
     const indexes = await collection.listSearchIndexes().toArray();
-    if (indexes.some(idx => idx.name === "bengaliTagVectorIndex")) {
+    // Define interface for search index
+    interface SearchIndex {
+      name: string;
+      [key: string]: any; // Allow for other properties MongoDB might return
+    }
+    
+    if (indexes.some((idx: SearchIndex) => idx.name === "bengaliTagVectorIndex")) {
       console.log("Bengali tag vector index already exists");
       return;
     }

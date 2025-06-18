@@ -1,5 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { processMediaWithGemini, suggestBengaliTags } from '../utils/mediaProcessor.js';
+import { extractVideoHighlights } from '../utils/videoHighlights.js';
 import { Types } from 'mongoose';
 import MediaItem from '../models/MediaItem.js';
 import { authMiddleware } from '../middlewares/authmiddleware.js';
@@ -78,6 +79,55 @@ async function suggestTags(req: Request, res: Response): Promise<void> {
   }
 }
 
+// Helper function for extracting video highlights
+async function createVideoHighlights(req: Request, res: Response): Promise<void> {
+  try {
+    const { cloudinaryUrl, outputDir, outputFilename } = req.body;
+    
+    // Validate required fields
+    if (!cloudinaryUrl) {
+      res.status(400).json({ 
+        error: 'cloudinaryUrl is required',
+        example: {
+          cloudinaryUrl: "https://res.cloudinary.com/your-cloud/video/upload/v1234567890/sample.mp4",
+          outputDir: "/optional/output/directory",
+          outputFilename: "optional-filename.mp4"
+        }
+      });
+      return;
+    }
+    
+    // Get user info from Civic Auth (optional - remove if not needed)
+    const user = await req.civicAuth?.getUser();
+    const userId = user ? String(user.id || user.email || 'unknown') : 'anonymous';
+    
+    console.log(`Creating video highlights for user: ${userId}`);
+    console.log(`Processing video: ${cloudinaryUrl}`);
+    
+    // Extract video highlights
+    const highlightsPath = await extractVideoHighlights(
+      cloudinaryUrl,
+      undefined, // Use environment variable for API key
+      outputDir,
+      outputFilename
+    );
+    
+    res.status(200).json({
+      message: 'Video highlights created successfully',
+      highlightsPath,
+      originalVideo: cloudinaryUrl,
+      createdAt: new Date().toISOString()
+    });
+    
+  } catch (error) {
+    console.error('Error creating video highlights:', error);
+    res.status(500).json({ 
+      error: 'Failed to create video highlights',
+      details: error instanceof Error ? error.message : String(error)
+    });
+  }
+}
+
 // Create a wrapped middleware function that handles async correctly
 const asyncHandler = (fn: Function) => (req: Request, res: Response, next: NextFunction) => {
   Promise.resolve(fn(req, res, next)).catch(next);
@@ -93,6 +143,9 @@ const withAuth = (fn: Function) => (req: Request, res: Response, next: NextFunct
 
 // Process a media item with Gemini Vision
 router.post('/media/:mediaId/process', withAuth(processMedia));
+
+// Create video highlights from a Cloudinary video URL
+router.post('/video/highlights', asyncHandler(createVideoHighlights));
 
 // Get tag suggestions
 router.get('/tags/suggest', asyncHandler(suggestTags));

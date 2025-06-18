@@ -12,6 +12,7 @@ import mediaProcessingRoutes from './routes/mediaProcessingRoutes.js';
 import postroutes from './routes/postroutes.js';
 import eventroutes from './routes/eventroutes.js';
 import collectionroutes from './routes/collectionroutes.js';
+import vectorSearchRoutes from './routes/vectorSearchRoutes.js';
 import { connectDB } from './dbconfig/dbconnect.js';
 
 dotenv.config();
@@ -210,6 +211,15 @@ app.use(
     authMiddleware(req, res, next);
   },
   mediaProcessingRoutes
+);
+
+// Vector search routes
+app.use(
+  '/api/vector',
+  (req: AuthenticatedRequest, res: TypedResponse, next: NextFunction) => {
+    next(); // No auth required for search endpoints
+  },
+  vectorSearchRoutes
 );
 
 // Global error handler

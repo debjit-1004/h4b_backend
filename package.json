@@ -4,7 +4,9 @@
   "scripts": {
     "build": "tsc",
     "start": "node dist/app.js",
-    "dev": "nodemon --watch src --exec \"tsc && node dist/app.js\""
+    "dev": "nodemon --watch src --exec \"tsc && node dist/app.js\"",
+    "create-indexes": "node src/scripts/createVectorIndexes.js",
+    "cleanup-indexes": "node src/scripts/cleanupVectorIndexes.js"
   },
   "dependencies": {
     "@civic/auth": "^0.7.0",

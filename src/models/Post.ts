@@ -58,6 +58,11 @@ export interface IPost extends Document {
     travelStyle?: string;
   };
   
+  // Vector embeddings for similarity search
+  textEmbedding?: number[];
+  multimodalEmbedding?: number[];
+  culturalEmbedding?: number[];
+  
   createdAt: Date;
   updatedAt: Date;
 }
@@ -132,7 +137,25 @@ const postSchema = new Schema<IPost>({
   aiSummary: aiSummarySchema,
   culturalContext: culturalContextSchema,
   creativeContext: creativeContextSchema,
-  travelContext: travelContextSchema
+  travelContext: travelContextSchema,
+  
+  // Vector embeddings
+  textEmbedding: {
+    type: [Number],
+    default: undefined,
+    index: false
+  },
+  multimodalEmbedding: {
+    type: [Number],
+    default: undefined,
+    index: false
+  },
+  culturalEmbedding: {
+    type: [Number],
+    default: undefined,
+    index: false
+  },
+  
 }, { 
   timestamps: true
 });

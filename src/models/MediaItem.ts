@@ -65,8 +65,7 @@ export interface IMediaItem extends Document {
     travelStyle?: string;
   };
   
-  createdAt: Date;
-  updatedAt: Date;
+  // Vector embeddings for similarity search
   visualEmbedding?: number[];
   textEmbedding?: number[];
   multimodalEmbedding?: number[];
@@ -143,10 +142,27 @@ const mediaItemSchema = new Schema<IMediaItem>({
   creativeContext: creativeContextSchema,
   travelContext: travelContextSchema,
   
-  visualEmbedding: { type: [Number], default: undefined, index: false },
-  textEmbedding: { type: [Number], default: undefined, index: false },
-  multimodalEmbedding: { type: [Number], default: undefined, index: false },
-  culturalEmbedding: { type: [Number], default: undefined, index: false },
+  // Vector embeddings
+  visualEmbedding: {
+    type: [Number],
+    default: undefined,
+    index: false
+  },
+  textEmbedding: {
+    type: [Number],
+    default: undefined,
+    index: false
+  },
+  multimodalEmbedding: {
+    type: [Number],
+    default: undefined,
+    index: false
+  },
+  culturalEmbedding: {
+    type: [Number],
+    default: undefined,
+    index: false
+  },
 }, { timestamps: true });
 
 export default model<IMediaItem>('MediaItem', mediaItemSchema);

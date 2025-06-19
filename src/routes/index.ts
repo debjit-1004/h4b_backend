@@ -2,6 +2,7 @@ import { Router } from 'express';
 import postroutes from './postroutes.js';
 import eventroutes from './eventroutes.js';
 import collectionroutes from './collectionroutes.js';
+import quizRoutes from './quizroutes.js';
 
 const router = Router();
 
@@ -18,5 +19,8 @@ router.use('/events', eventroutes);
 
 // Include collection routes (they will be available at /api/collections/*)
 router.use('/collections', collectionroutes);
+
+// Include quiz routes (they will be available at /api/quiz/*)
+router.use('/quiz', quizRoutes);
 
 export default router;

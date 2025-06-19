@@ -15,6 +15,6 @@ console.log('Civic Auth Client ID loaded:', clientId);
 
 export const config = {
     clientId: clientId,
-    redirectUrl: 'http://192.168.233.236/auth/callback',
+    redirectUrl: 'https://h4b-backend.onrender.com/auth/callback',
     postLogoutRedirectUrl: 'http://192.168.233.236/(auth)/login' // Updated to point to frontend login
 };

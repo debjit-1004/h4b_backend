@@ -75,6 +75,9 @@ export interface ICommunityEvent extends Document {
   textEmbedding?: number[];
   culturalEmbedding?: number[];
   
+  // Add collections field to reference collections created for this event
+  collections: Types.ObjectId[]; // References to Collection documents
+  
   createdAt: Date;
   updatedAt: Date;
 }
@@ -199,6 +202,9 @@ const communityEventSchema = new Schema<ICommunityEvent>({
     default: undefined,
     index: false
   },
+  
+  // Collections related to this event
+  collections: [{ type: Schema.Types.ObjectId, ref: 'Collection' }],
 }, { 
   timestamps: true
 });

@@ -2,6 +2,7 @@ import { Types } from 'mongoose';
 import Collection from './Collection.js';
 import { CollectionMember, CollectionMedia } from './CollectionRelations.js';
 import MediaItem from './MediaItem.js';
+import CommunityEvent from './CommunityEvent.js';
 
 /**
  * Utility class for managing Collections (subreddit-like structures)
@@ -40,6 +41,41 @@ export class CollectionUtils {
       userId: createdBy,
       role: 'admin',
       favorite: true
+    });
+    
+    return collection;
+  }
+  
+  /**
+   * Create a new collection for an event
+   */
+  static async createEventCollection(
+    eventId: Types.ObjectId,
+    name: string,
+    description: string,
+    createdBy: Types.ObjectId,
+    coverImage?: string,
+    icon?: string
+  ) {
+    // Create the base collection
+    const collection = await this.createCollection(
+      name,
+      description,
+      createdBy,
+      false, // Event collections are public by default
+      undefined, // Auto-generate slug
+      coverImage,
+      icon
+    );
+    
+    // Update with event ID
+    await Collection.findByIdAndUpdate(collection._id, {
+      eventId
+    });
+    
+    // Update the event to include this collection
+    await CommunityEvent.findByIdAndUpdate(eventId, {
+      $addToSet: { collections: collection._id }
     });
     
     return collection;

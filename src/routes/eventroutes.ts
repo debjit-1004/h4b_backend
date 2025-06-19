@@ -6,7 +6,8 @@ import {
   getEvents,
   getEventById,
   joinEvent,
-  leaveEvent
+  leaveEvent,
+  getEventWithCollections
 } from "../controllers/eventcontroller.js";
 import { authMiddleware } from "../middlewares/authmiddleware.js";
 
@@ -39,5 +40,8 @@ router.post("/:eventId/join", withAuth(joinEvent));
 
 // Leave an event (protected)
 router.post("/:eventId/leave", withAuth(leaveEvent));
+
+// Get a single event with its collections
+router.get("/:eventId/withCollections", asyncHandler(getEventWithCollections));
 
 export default router;

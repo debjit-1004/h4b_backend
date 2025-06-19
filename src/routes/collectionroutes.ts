@@ -8,7 +8,10 @@ import {
   removeMediaFromCollection,
   generateCollectionSummary,
   joinCollection,
-  leaveCollection
+  leaveCollection,
+  createEventCollection,
+  getEventCollections,
+  addPostsToEventCollection
 } from "../controllers/collectioncontroller.js";
 import { authMiddleware } from "../middlewares/authmiddleware.js";
 
@@ -47,5 +50,10 @@ router.post("/:collectionId/join", withAuth(joinCollection));
 
 // Leave a collection (protected)
 router.post("/:collectionId/leave", withAuth(leaveCollection));
+
+// Event collection routes
+router.post("/event/:eventId", withAuth(createEventCollection));
+router.get("/event/:eventId", asyncHandler(getEventCollections));
+router.post("/:collectionId/posts", withAuth(addPostsToEventCollection));
 
 export default router;

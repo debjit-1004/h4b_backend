@@ -56,16 +56,23 @@ export async function extractVideoHighlights(
       finalOutputFilename
     );
     
-    // If output directory is specified, move the file there
-    if (outputDir && tempOutputPath !== outputPath) {
-      if (!fs.existsSync(outputDir)) {
-        fs.mkdirSync(outputDir, { recursive: true });
+    // Always move the file to the final output location if different from temp location
+    if (tempOutputPath !== outputPath) {
+      // Ensure output directory exists
+      if (!fs.existsSync(finalOutputDir)) {
+        fs.mkdirSync(finalOutputDir, { recursive: true });
       }
+      
+      // Copy the file to the final location
       fs.copyFileSync(tempOutputPath, outputPath);
       console.log(`Copied highlights video to: ${outputPath}`);
+      
+      return outputPath;
+    } else {
+      // File is already at the correct location
+      console.log(`Highlights video created at: ${outputPath}`);
+      return tempOutputPath;
     }
-    
-    return outputPath;
   } finally {
     // Clean up temporary files
     videoSplitter.cleanup();

@@ -71,6 +71,10 @@ export interface ICommunityEvent extends Document {
   shares: number;
   views: number;
   
+  // Vector embeddings for similarity search
+  textEmbedding?: number[];
+  culturalEmbedding?: number[];
+  
   createdAt: Date;
   updatedAt: Date;
 }
@@ -182,7 +186,19 @@ const communityEventSchema = new Schema<ICommunityEvent>({
   // Social metrics
   likes: [{ type: Schema.Types.ObjectId, ref: 'User' }],
   shares: { type: Number, default: 0 },
-  views: { type: Number, default: 0 }
+  views: { type: Number, default: 0 },
+  
+  // Vector embeddings
+  textEmbedding: {
+    type: [Number],
+    default: undefined,
+    index: false
+  },
+  culturalEmbedding: {
+    type: [Number],
+    default: undefined,
+    index: false
+  },
 }, { 
   timestamps: true
 });

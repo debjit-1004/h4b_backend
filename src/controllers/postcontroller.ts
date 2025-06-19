@@ -2,18 +2,14 @@ import { Request, Response } from 'express';
 import { uploadtocloudinary } from '../cloudconfig.js';
 import MediaItem from '../models/MediaItem.js';
 import Post from '../models/Post.js';
-import CommunityEvent from '../models/CommunityEvent.js';
 import User from '../models/User.js';
 import { 
   generatePostSummary, 
-  generatePostsCollectionSummary,
-  generateCommunityEventSummary,
   generateCulturalHeritageSummary,
   generateCreativeStorySummary,
   generateTravelLocationSummary,
   MediaItem as GeminiMediaItem,
   Post as GeminiPost,
-  CommunityEvent as GeminiCommunityEvent,
   SummaryOptions,
   generateSummaryType
 } from '../utils/geminiSummary.js';
@@ -21,7 +17,7 @@ import mongoose from 'mongoose';
 
 // Extend the Express Request type to include files
 interface MulterRequest extends Request {
-  files?: Express.Multer.File[]; // This should work if @types/multer is resolved
+  files?: Express.Multer.File[];
 }
 
 export const createposts = async (req: MulterRequest, res: Response) => {
@@ -412,192 +408,6 @@ export const generatePostSummaryEndpoint = async (req: Request, res: Response) =
         console.error('Error generating post summary:', error);
         res.status(500).json({
             message: 'Error generating summary',
-            error: error instanceof Error ? error.message : 'Unknown error'
-        });
-    }
-};
-
-// Create community event
-export const createCommunityEvent = async (req: Request, res: Response) => {
-    try {
-        const user = await req.civicAuth.getUser();
-        if (!user?.name) {
-            return res.status(401).json({ message: 'User not authenticated' });
-        }
-
-        const existingUser = await User.findOne({ name: user.name });
-        if (!existingUser) {
-            return res.status(404).json({ message: 'User not found in database' });
-        }
-
-        const {
-            name,
-            description,
-            eventType,
-            date,
-            endDate,
-            location,
-            maxParticipants,
-            registrationRequired,
-            registrationDeadline,
-            tags,
-            culturalTags,
-            visibility = 'public'
-        } = req.body;
-
-        const event = new CommunityEvent({
-            organizerId: existingUser._id,
-            name,
-            description,
-            eventType,
-            date: new Date(date),
-            endDate: endDate ? new Date(endDate) : undefined,
-            location,
-            maxParticipants,
-            registrationRequired: registrationRequired || false,
-            registrationDeadline: registrationDeadline ? new Date(registrationDeadline) : undefined,
-            tags: tags || [],
-            culturalTags: culturalTags || [],
-            visibility,
-            participants: [],
-            mediaItems: [],
-            status: 'draft',
-            likes: [],
-            shares: 0,
-            views: 0,
-            feedback: []
-        });
-
-        const savedEvent = await event.save();
-
-        res.status(201).json({
-            message: 'Community event created successfully',
-            event: savedEvent
-        });
-
-    } catch (error) {
-        console.error('Error creating community event:', error);
-        res.status(500).json({
-            message: 'Error creating community event',
-            error: error instanceof Error ? error.message : 'Unknown error'
-        });
-    }
-};
-
-// Generate summary for community event
-export const generateEventSummary = async (req: Request, res: Response) => {
-    try {
-        const { eventId } = req.params;
-        const { options = {} } = req.body;
-
-        const event = await CommunityEvent.findById(eventId).populate('mediaItems');
-        if (!event) {
-            return res.status(404).json({ message: 'Event not found' });
-        }
-
-        // Convert to Gemini format
-        const geminiMediaItems: GeminiMediaItem[] = event.mediaItems.map((item: any) => ({
-            url: item.uri,
-            type: item.type === 'photo' ? 'image' : 'video',
-            description: item.description
-        }));
-
-        const geminiEvent: GeminiCommunityEvent = {
-            id: event._id.toString(),
-            name: event.name,
-            description: event.description,
-            date: event.date,
-            location: event.location.name,
-            media: geminiMediaItems,
-            participants: event.participants.map(p => p.toString()),
-            eventType: event.eventType
-        };
-
-        const summaryOptions: SummaryOptions = {
-            style: 'detailed',
-            language: 'bilingual',
-            maxLength: 400,
-            ...options
-        };
-
-        const summary = await generateCommunityEventSummary(geminiEvent, summaryOptions);
-
-        if (summary) {
-            const updateData = {
-                aiSummary: {
-                    summary: summary.summary,
-                    highlights: summary.highlights,
-                    participation: summary.participation,
-                    impact: summary.impact,
-                    generatedAt: new Date()
-                }
-            };
-
-            await CommunityEvent.findByIdAndUpdate(eventId, updateData);
-
-            res.json({
-                message: 'Event summary generated successfully',
-                summary
-            });
-        } else {
-            res.status(500).json({ message: 'Failed to generate summary' });
-        }
-
-    } catch (error) {
-        console.error('Error generating event summary:', error);
-        res.status(500).json({
-            message: 'Error generating event summary',
-            error: error instanceof Error ? error.message : 'Unknown error'
-        });
-    }
-};
-
-// Generate collection summary for multiple posts
-export const generateCollectionSummary = async (req: Request, res: Response) => {
-    try {
-        const { postIds, options = {} } = req.body;
-
-        if (!postIds || !Array.isArray(postIds) || postIds.length === 0) {
-            return res.status(400).json({ message: 'Post IDs array is required' });
-        }
-
-        const posts = await Post.find({ _id: { $in: postIds } }).populate('mediaItems');
-
-        // Convert to Gemini format
-        const geminiPosts: GeminiPost[] = posts.map(post => ({
-            id: post._id.toString(),
-            title: post.title,
-            description: post.description,
-            media: post.mediaItems.map((item: any) => ({
-                url: item.uri,
-                type: item.type === 'photo' ? 'image' : 'video',
-                description: item.description
-            })),
-            tags: post.tags,
-            location: post.location?.name,
-            timestamp: post.createdAt,
-            author: post.userId.toString()
-        }));
-
-        const summaryOptions: SummaryOptions = {
-            style: 'detailed',
-            language: 'bilingual',
-            maxLength: 500,
-            ...options
-        };
-
-        const summary = await generatePostsCollectionSummary(geminiPosts, summaryOptions);
-
-        res.json({
-            message: 'Collection summary generated successfully',
-            summary,
-            postsAnalyzed: posts.length
-        });
-
-    } catch (error) {
-        console.error('Error generating collection summary:', error);
-        res.status(500).json({
-            message: 'Error generating collection summary',
             error: error instanceof Error ? error.message : 'Unknown error'
         });
     }

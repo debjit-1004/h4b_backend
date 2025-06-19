@@ -12,6 +12,7 @@ import mediaProcessingRoutes from './routes/mediaProcessingRoutes.js';
 import postroutes from './routes/postroutes.js';
 import eventroutes from './routes/eventroutes.js';
 import collectionroutes from './routes/collectionroutes.js';
+import vectorSearchRoutes from './routes/vectorSearchRoutes.js';
 import { connectDB } from './dbconfig/dbconnect.js';
 
 dotenv.config();
@@ -135,31 +136,55 @@ app.get('/health', (req: Request, res: Response) => {
 app.use('/auth', authrouter);
 
 // Protected API routes that require authentication
-app.use('/api', (req, res, next) => {
-  authMiddleware(req, res, next);
-}, router);
+interface ProtectedApiRequest extends Request {
+  user?: any;
+}
+
+interface ProtectedApiResponse<T = any> extends Response<T> {}
+
+app.use(
+  '/api',
+  (req: ProtectedApiRequest, res: ProtectedApiResponse, next: NextFunction) => {
+    authMiddleware(req, res, next);
+  },
+  router
+);
 
 // Auth-protected routes for authenticated users only
-app.use('/api/auth', (req, res, next) => {
-  authMiddleware(req, res, next);
-}, authrouter);
+interface AuthProtectedRequest extends Request {
+  user?: any;
+}
 
-// Media item routes with auth middleware - directly mounted
-app.use('/api/mediaItems', (req, res, next) => {
-  authMiddleware(req, res, next);
-}, mediaItemRoutes);
+interface AuthProtectedResponse<T = any> extends Response<T> {}
 
-// Post routes with auth middleware
-app.use('/api/posts', (req, res, next) => {
-  authMiddleware(req, res, next);
-}, postRoutes);
+app.use(
+  '/api/auth',
+  (req: AuthProtectedRequest, res: AuthProtectedResponse, next: NextFunction) => {
+    authMiddleware(req, res, next);
+  },
+  authrouter
+);
+
+// Post routes with auth middleware - directly mounted
+interface AuthenticatedRequest extends Request {
+  user?: any;
+}
+
+interface TypedResponse<T = any> extends Response<T> {}
+
+app.use(
+  '/api/posts',
+  (req: AuthenticatedRequest, res: TypedResponse, next: NextFunction) => {
+    // authMiddleware(req, res, next);
+  },
+  postroutes
+);
 
 // Event routes
 app.use(
   '/api/events',
   (req: AuthenticatedRequest, res: TypedResponse, next: NextFunction) => {
-    // Public routes available, auth handled within the router
-    next();
+    // authMiddleware(req, res, next);
   },
   eventroutes
 );
@@ -168,16 +193,34 @@ app.use(
 app.use(
   '/api/collections',
   (req: AuthenticatedRequest, res: TypedResponse, next: NextFunction) => {
-    // Public routes available, auth handled within the router
-    next();
+    // authMiddleware(req, res, next);
   },
   collectionroutes
 );
 
 // Media processing routes with auth middleware
-app.use('/api/processing', (req, res, next) => {
-  authMiddleware(req, res, next);
-}, mediaProcessingRoutes);
+interface MediaProcessingRequest extends Request {
+  user?: any;
+}
+
+interface MediaProcessingResponse<T = any> extends Response<T> {}
+
+app.use(
+  '/api/processing',
+  (req: MediaProcessingRequest, res: MediaProcessingResponse, next: NextFunction) => {
+    authMiddleware(req, res, next);
+  },
+  mediaProcessingRoutes
+);
+
+// Vector search routes
+app.use(
+  '/api/vector',
+  (req: AuthenticatedRequest, res: TypedResponse, next: NextFunction) => {
+    next(); // No auth required for search endpoints
+  },
+  vectorSearchRoutes
+);
 
 // Global error handler
 app.use((error: Error, req: Request, res: Response, next: NextFunction) => {
@@ -198,7 +241,7 @@ app.use('*', (req: Request, res: Response) => {
   });
 });
 
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);

@@ -313,3 +313,39 @@ export const leaveEvent = async (req: Request, res: Response) => {
         });
     }
 };
+
+/**
+ * Get event details with collections
+ */
+export const getEventWithCollections = async (req: Request, res: Response) => {
+  try {
+    const { eventId } = req.params;
+    
+    const event = await CommunityEvent.findById(eventId)
+      .populate('organizerId', 'name email')
+      .populate('participants', 'name email')
+      .populate({
+        path: 'collections',
+        select: 'name description coverImage memberCount tags mediaItems',
+        populate: {
+          path: 'mediaItems',
+          select: 'uri type title description'
+        }
+      });
+    
+    if (!event) {
+      return res.status(404).json({ message: 'Event not found' });
+    }
+    
+    // Increment view count
+    await CommunityEvent.findByIdAndUpdate(eventId, { $inc: { views: 1 } });
+    
+    res.json({ event });
+  } catch (error) {
+    console.error('Error getting event with collections:', error);
+    res.status(500).json({
+      message: 'Error retrieving event details',
+      error: error instanceof Error ? error.message : String(error)
+    });
+  }
+};

@@ -20,6 +20,9 @@ export interface ICollection extends Document {
   featured: boolean; // Whether this collection is featured on the homepage
   createdAt: Date;
   updatedAt: Date;
+
+  // New field to link to community events
+  eventId?: Types.ObjectId; // Optional reference to a community event
 }
 
 /**
@@ -80,7 +83,10 @@ const collectionSchema = new Schema<ICollection>({
   featured: {
     type: Boolean,
     default: false
-  }
+  },
+
+  // Link to community event
+  eventId: { type: Schema.Types.ObjectId, ref: 'CommunityEvent', index: true },
 }, { timestamps: true });
 
 // Create text index for search
@@ -97,5 +103,8 @@ collectionSchema.pre('save', function(next) {
   }
   next();
 });
+
+// Add index for event-based queries
+collectionSchema.index({ eventId: 1, isPrivate: 1 });
 
 export default model<ICollection>('Collection', collectionSchema);

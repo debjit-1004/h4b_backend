@@ -12,6 +12,7 @@ import {
   SummaryOptions
 } from '../utils/geminiSummary.js';
 import mongoose from 'mongoose';
+import CommunityEvent from '../models/CommunityEvent.js';
 
 // Create a new collection
 export const createCollection = async (req: Request, res: Response) => {
@@ -417,4 +418,168 @@ export const leaveCollection = async (req: Request, res: Response) => {
             error: error instanceof Error ? error.message : 'Unknown error'
         });
     }
+};
+
+/**
+ * Get collections for an event
+ */
+export const getEventCollections = async (req: Request, res: Response) => {
+  try {
+    const { eventId } = req.params;
+    
+    if (!eventId) {
+      return res.status(400).json({ message: 'Event ID is required' });
+    }
+    
+    // Get collections for the event
+    const collections = await Collection.find({ 
+      eventId: new mongoose.Types.ObjectId(eventId),
+      isPrivate: false // Only public collections
+    })
+    .populate('createdBy', 'name username profilePicture')
+    .sort({ createdAt: -1 });
+    
+    res.status(200).json({
+      collections,
+      count: collections.length
+    });
+  } catch (error) {
+    console.error('Error getting event collections:', error);
+    res.status(500).json({
+      message: 'Error retrieving event collections',
+      error: error instanceof Error ? error.message : String(error)
+    });
+  }
+};
+
+/**
+ * Create a collection for an event
+ */
+export const createEventCollection = async (req: Request, res: Response) => {
+  try {
+    const { eventId } = req.params;
+    const { name, description, tags, slug, coverImage, icon } = req.body;
+    
+    const user = await req.civicAuth.getUser();
+    if (!user?.name) {
+      return res.status(401).json({ message: 'User not authenticated' });
+    }
+
+    const existingUser = await User.findOne({ name: user.name });
+    if (!existingUser) {
+      return res.status(404).json({ message: 'User not found in database' });
+    }
+    
+    // Validate event exists
+    const event = await CommunityEvent.findById(eventId);
+    if (!event) {
+      return res.status(404).json({ message: 'Event not found' });
+    }
+    
+    // Check if user is the event organizer
+    if (!event.organizerId.equals(String(existingUser._id)) && 
+        !event.participants.some(p => p.equals(String(existingUser._id)))) {
+      return res.status(403).json({ 
+        message: 'Only event organizers or participants can create collections for this event' 
+      });
+    }
+    
+    // Create new collection linked to the event
+    const collection = await CollectionUtils.createCollection(
+      name,
+      description,
+      existingUser._id as mongoose.Types.ObjectId,
+      false, // Event collections are public by default
+      slug,
+      coverImage || event.coverImage,
+      icon
+    );
+    
+    // Set the eventId
+    await Collection.findByIdAndUpdate(collection._id, {
+      eventId: new mongoose.Types.ObjectId(eventId)
+    });
+    
+    // Update the event with the new collection
+    await CommunityEvent.findByIdAndUpdate(eventId, {
+      $addToSet: { collections: collection._id }
+    });
+    
+    // Return the created collection
+    res.status(201).json({
+      message: 'Event collection created successfully',
+      collection
+    });
+  } catch (error) {
+    console.error('Error creating event collection:', error);
+    res.status(500).json({
+      message: 'Error creating event collection',
+      error: error instanceof Error ? error.message : String(error)
+    });
+  }
+};
+
+/**
+ * Add posts to an event collection
+ */
+export const addPostsToEventCollection = async (req: Request, res: Response) => {
+  try {
+    const { collectionId } = req.params;
+    const { postIds } = req.body;
+    
+    if (!Array.isArray(postIds) || postIds.length === 0) {
+      return res.status(400).json({ message: 'Post IDs array is required' });
+    }
+    
+    const user = await req.civicAuth.getUser();
+    if (!user?.name) {
+      return res.status(401).json({ message: 'User not authenticated' });
+    }
+    
+    const existingUser = await User.findOne({ name: user.name });
+    if (!existingUser) {
+      return res.status(404).json({ message: 'User not found in database' });
+    }
+    
+    // Find the collection
+    const collection = await Collection.findById(collectionId);
+    if (!collection) {
+      return res.status(404).json({ message: 'Collection not found' });
+    }
+    
+    // Check if collection is event-related
+    if (!collection.eventId) {
+      return res.status(400).json({ message: 'This is not an event collection' });
+    }
+    
+    // Check if user has access to modify the collection
+    if (!collection.createdBy.equals(String(existingUser._id)) && 
+        !collection.moderators.some(id => id.equals(String(existingUser._id)))) {
+      return res.status(403).json({ message: 'Not authorized to modify this collection' });
+    }
+    
+    // Add posts to collection
+    const postIdObjects = postIds.map(id => new mongoose.Types.ObjectId(id));
+    await Collection.findByIdAndUpdate(collectionId, {
+      $addToSet: { mediaItems: { $each: postIdObjects } }
+    });
+    
+    // Add collection to posts
+    await Post.updateMany(
+      { _id: { $in: postIds } },
+      { $addToSet: { collections: new mongoose.Types.ObjectId(collectionId) } }
+    );
+    
+    res.status(200).json({
+      message: 'Posts added to event collection successfully',
+      collectionId,
+      postCount: postIds.length
+    });
+  } catch (error) {
+    console.error('Error adding posts to event collection:', error);
+    res.status(500).json({
+      message: 'Error adding posts to collection',
+      error: error instanceof Error ? error.message : String(error)
+    });
+  }
 };

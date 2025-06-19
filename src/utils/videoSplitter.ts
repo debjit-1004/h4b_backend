@@ -83,12 +83,16 @@ export class CloudinaryVideoSplitter {
       
       const outputPath = path.join(this.tempDir, `segment-${i+1}-${uuidv4()}.mp4`);
       
+      console.log(`Extracting segment ${i+1}: ${start}s to ${end}s (duration: ${duration.toFixed(2)}s)`);
+      
       await this.executeFFmpeg([
-        '-ss', start.toString(),
         '-i', videoPath,
+        '-ss', start.toString(),
         '-t', duration.toString(),
-        '-c:v', 'copy',
-        '-c:a', 'copy',
+        '-c:v', 'libx264',
+        '-c:a', 'aac',
+        '-avoid_negative_ts', 'make_zero',
+        '-fflags', '+genpts',
         outputPath
       ]);
       
@@ -113,10 +117,21 @@ export class CloudinaryVideoSplitter {
     
     console.log(`Merging ${segmentPaths.length} segments...`);
     
+    // Verify all segment files exist
+    for (const segmentPath of segmentPaths) {
+      if (!fs.existsSync(segmentPath)) {
+        throw new Error(`Segment file not found: ${segmentPath}`);
+      }
+      console.log(`Verified segment exists: ${path.basename(segmentPath)}`);
+    }
+    
     // Create a file that lists all segments to merge
     const listFilePath = path.join(this.tempDir, 'segments.txt');
     const listContent = segmentPaths.map(p => `file '${p}'`).join('\n');
     fs.writeFileSync(listFilePath, listContent);
+    
+    console.log('Segment list content:');
+    console.log(listContent);
     
     // Output path for the merged video
     const outputPath = path.join(this.tempDir, outputFilename || `merged-${uuidv4()}.mp4`);
@@ -125,11 +140,49 @@ export class CloudinaryVideoSplitter {
       '-f', 'concat',
       '-safe', '0',
       '-i', listFilePath,
-      '-c', 'copy',
+      '-c:v', 'libx264',
+      '-c:a', 'aac',
+      '-movflags', '+faststart',
       outputPath
     ]);
     
     console.log(`Merged video created at ${outputPath}`);
+    
+    // Validate the merged video
+    if (fs.existsSync(outputPath)) {
+      const stats = fs.statSync(outputPath);
+      console.log(`Merged video size: ${(stats.size / 1024 / 1024).toFixed(2)} MB`);
+      
+      // Use ffprobe to get video duration if available
+      try {
+        const ffprobe = spawn('ffprobe', [
+          '-v', 'quiet',
+          '-show_entries', 'format=duration',
+          '-of', 'csv=p=0',
+          outputPath
+        ]);
+        
+        let duration = '';
+        ffprobe.stdout.on('data', (data) => {
+          duration += data.toString();
+        });
+        
+        await new Promise<void>((resolve) => {
+          ffprobe.on('close', () => {
+            const durationSeconds = parseFloat(duration.trim());
+            if (!isNaN(durationSeconds)) {
+              console.log(`Merged video duration: ${durationSeconds.toFixed(2)} seconds`);
+            }
+            resolve();
+          });
+        });
+      } catch (error) {
+        console.log('Could not get video duration (ffprobe not available)');
+      }
+    } else {
+      throw new Error('Merged video file was not created');
+    }
+    
     return outputPath;
   }
   
@@ -156,20 +209,30 @@ export class CloudinaryVideoSplitter {
    */
   private executeFFmpeg(args: string[]): Promise<void> {
     return new Promise((resolve, reject) => {
-      const ffmpeg = spawn('ffmpeg', args);
+      console.log(`Executing FFmpeg: ffmpeg ${args.join(' ')}`);
       
-      // Collect error output
-      let errorOutput = '';
+      const ffmpeg = spawn('ffmpeg', ['-y', ...args]); // -y to overwrite output files
+      
+      // Collect both stdout and stderr
+      let stdout = '';
+      let stderr = '';
+      
+      ffmpeg.stdout.on('data', (data) => {
+        stdout += data.toString();
+      });
+      
       ffmpeg.stderr.on('data', (data) => {
-        errorOutput += data.toString();
+        stderr += data.toString();
       });
       
       ffmpeg.on('close', (code) => {
         if (code === 0) {
+          console.log('FFmpeg completed successfully');
           resolve();
         } else {
           console.error(`FFmpeg process exited with code ${code}`);
-          console.error(errorOutput);
+          console.error('STDERR:', stderr);
+          console.error('STDOUT:', stdout);
           reject(new Error(`FFmpeg process failed with code ${code}`));
         }
       });

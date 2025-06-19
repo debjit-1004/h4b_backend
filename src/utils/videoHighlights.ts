@@ -77,7 +77,7 @@ export async function extractVideoHighlights(
  */
 async function example() {
   try {
-    const cloudinaryUrl = "https://res.cloudinary.com/dgyiptxfq/video/upload/v1750076823/BANGALIANA/lqdcirgpismmsisnee4q.mp4"
+    const cloudinaryUrl = "https://res.cloudinary.com/dgyiptxfq/video/upload/v1750355821/BANGALIANA/WhatsApp_Video_2025-06-19_at_23.21.29_c7b13fd9_x2mthc.mp4"
     // Option 1: Basic usage with defaults (will save to current directory as video_edited.mp4)
     const highlightsPath = await extractVideoHighlights(cloudinaryUrl);
     console.log(`Highlights video created at: ${highlightsPath}`);

@@ -1,6 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { processMediaWithGemini, suggestBengaliTags } from '../utils/mediaProcessor.js';
 import { extractVideoHighlights } from '../utils/videoHighlights.js';
+import { processAndSaveVideoHighlights, getMediaItemForDisplay, getUserVideoHighlights } from '../utils/videoProcessor.js';
 import { Types } from 'mongoose';
 import MediaItem from '../models/MediaItem.js';
 import { authMiddleware } from '../middlewares/authmiddleware.js';
@@ -146,6 +147,130 @@ router.post('/media/:mediaId/process', withAuth(processMedia));
 
 // Create video highlights from a Cloudinary video URL
 router.post('/video/highlights', asyncHandler(createVideoHighlights));
+
+// NEW: Complete video processing workflow - Extract highlights + Upload + Save to DB
+router.post('/video/process-complete', withAuth(async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { cloudinaryUrl, title, description } = req.body;
+    
+    // Validate required fields
+    if (!cloudinaryUrl) {
+      res.status(400).json({ 
+        error: 'cloudinaryUrl is required',
+        example: {
+          cloudinaryUrl: "https://res.cloudinary.com/your-cloud/video/upload/v1234567890/sample.mp4",
+          title: "Optional video title",
+          description: "Optional video description"
+        }
+      });
+      return;
+    }
+    
+    // Get user info from Civic Auth
+    const user = await req.civicAuth?.getUser();
+    if (!user) {
+      res.status(401).json({ error: 'Unauthorized - User not authenticated' });
+      return;
+    }
+    
+    const userId = String(user.id || user.email || 'unknown');
+    console.log(`Processing complete video workflow for user: ${userId}`);
+    
+    // Process video: Extract highlights + Upload + Save to DB
+    const result = await processAndSaveVideoHighlights(
+      cloudinaryUrl,
+      userId,
+      title,
+      description
+    );
+    
+    if (result.success) {
+      res.status(200).json({
+        message: 'Video highlights processed and saved successfully',
+        data: result.mediaItem,
+        originalVideoUrl: result.originalVideoUrl,
+        highlightsVideoUrl: result.highlightsVideoUrl,
+        createdAt: new Date().toISOString()
+      });
+    } else {
+      res.status(500).json({
+        error: 'Failed to process video highlights',
+        details: result.message
+      });
+    }
+    
+  } catch (error) {
+    console.error('Error in complete video processing:', error);
+    res.status(500).json({
+      error: 'Internal server error',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+}));
+
+// NEW: Get MediaItem by ID for frontend display
+router.get('/media/:mediaItemId', asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { mediaItemId } = req.params;
+    
+    const result = await getMediaItemForDisplay(mediaItemId);
+    
+    if (result.success) {
+      res.status(200).json({
+        message: 'MediaItem retrieved successfully',
+        data: result.data
+      });
+    } else {
+      res.status(404).json({
+        error: 'MediaItem not found',
+        details: result.message
+      });
+    }
+    
+  } catch (error) {
+    console.error('Error fetching MediaItem:', error);
+    res.status(500).json({
+      error: 'Internal server error',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+}));
+
+// NEW: Get all video highlights for a user
+router.get('/user/video-highlights', withAuth(async (req: Request, res: Response): Promise<void> => {
+  try {
+    // Get user info from Civic Auth
+    const user = await req.civicAuth?.getUser();
+    if (!user) {
+      res.status(401).json({ error: 'Unauthorized - User not authenticated' });
+      return;
+    }
+    
+    const userId = String(user.id || user.email || 'unknown');
+    
+    const result = await getUserVideoHighlights(userId);
+    
+    if (result.success) {
+      res.status(200).json({
+        message: 'Video highlights retrieved successfully',
+        data: result.data,
+        count: result.data?.length || 0
+      });
+    } else {
+      res.status(500).json({
+        error: 'Failed to retrieve video highlights',
+        details: result.message
+      });
+    }
+    
+  } catch (error) {
+    console.error('Error fetching user video highlights:', error);
+    res.status(500).json({
+      error: 'Internal server error',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+}));
 
 // Get tag suggestions
 router.get('/tags/suggest', asyncHandler(suggestTags));

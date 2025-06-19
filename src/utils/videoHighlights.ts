@@ -13,8 +13,8 @@ import { v4 as uuidv4 } from 'uuid';
  * 
  * @param cloudinaryUrl URL of the video on Cloudinary
  * @param apiKey Optional Gemini API key (defaults to environment variable)
- * @param outputDir Optional directory to save the output file (defaults to temp dir)
- * @param outputFilename Optional filename for the output video (defaults to highlights-{uuid}.mp4)
+ * @param outputDir Optional directory to save the output file (defaults to current working directory)
+ * @param outputFilename Optional filename for the output video (defaults to video_edited.mp4)
  * @returns Path to the created highlights video
  */
 export async function extractVideoHighlights(
@@ -44,9 +44,9 @@ export async function extractVideoHighlights(
   const videoSplitter = new CloudinaryVideoSplitter();
   
   try {
-    // Determine output location
-    const finalOutputDir = outputDir || os.tmpdir();
-    const finalOutputFilename = outputFilename || `highlights-${uuidv4()}.mp4`;
+    // Determine output location - default to current working directory
+    const finalOutputDir = outputDir || process.cwd();
+    const finalOutputFilename = outputFilename || `video_edited.mp4`;
     const outputPath = path.join(finalOutputDir, finalOutputFilename);
     
     // Process the video
@@ -78,7 +78,7 @@ export async function extractVideoHighlights(
 async function example() {
   try {
     const cloudinaryUrl = "https://res.cloudinary.com/dgyiptxfq/video/upload/v1750076823/BANGALIANA/lqdcirgpismmsisnee4q.mp4"
-    // Option 1: Basic usage with defaults (will save to temp directory)
+    // Option 1: Basic usage with defaults (will save to current directory as video_edited.mp4)
     const highlightsPath = await extractVideoHighlights(cloudinaryUrl);
     console.log(`Highlights video created at: ${highlightsPath}`);
     

@@ -86,7 +86,17 @@ const postSchema = new Schema<IPost>({
     },
     coordinates: {
       type: [Number],
-      required: true
+      required: true,
+      validate: {
+        validator: function(coordinates: number[]) {
+          // Validate that coordinates are in bounds
+          // [longitude, latitude] - longitude: -180 to 180, latitude: -90 to 90
+          return coordinates.length === 2 && 
+                 coordinates[0] >= -180 && coordinates[0] <= 180 && 
+                 coordinates[1] >= -90 && coordinates[1] <= 90;
+        },
+        message: 'Invalid GeoJSON coordinates. Longitude must be between -180 and 180, Latitude must be between -90 and 90. Format: [longitude, latitude]'
+      }
     }
   },
   likes: [{ type: Schema.Types.ObjectId, ref: 'User' }],

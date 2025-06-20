@@ -122,9 +122,8 @@ export const createposts = async (req: MulterRequest, res: Response) => {
         let postLocation;
         if (req.body.latitude && req.body.longitude) {
             postLocation = {
-                latitude: parseFloat(req.body.latitude),
-                longitude: parseFloat(req.body.longitude),
-                name: req.body.locationName || undefined
+                coordinates : [parseFloat(req.body.latitude), parseFloat(req.body.longitude)],
+                type: req.body.locationName || "Point"
             };
         }
 
@@ -281,9 +280,13 @@ export const generatePostSummaryEndpoint = async (req: Request, res: Response) =
 
 export const getNearbyPosts = async (req: Request, res: Response) => {
   try {
-    // @ts-ignore
-    const userId = req.user.id;
-    const user = await User.findById(userId);
+    const authUser = await req.civicAuth.getUser();
+    console.log('Authenticated user:', authUser);
+    if (!authUser) {
+      return res.status(401).json({ error: 'User not authenticated.' });
+    }
+    
+    const user = await User.findOne({ name: authUser.name });
 
     if (!user || !user.location || !user.location.coordinates) {
       return res.status(400).json({ error: 'User location not set.' });

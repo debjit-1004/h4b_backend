@@ -1,78 +1,6 @@
 import { Schema, model, Document, Types } from 'mongoose';
 
-export interface IPost extends Document {
-  _id: Types.ObjectId;
-  userId: Types.ObjectId;
-  title?: string;
-  description?: string;
-  mediaItems: Types.ObjectId[]; // References to MediaItem documents
-  tags: string[];
-  location?: {
-    latitude: number;
-    longitude: number;
-    name?: string;
-  };
-  likes: Types.ObjectId[];
-  comments: {
-    userId: Types.ObjectId;
-    userName: string;
-    text: string;
-    timestamp: Date;
-  }[];
-  collections: Types.ObjectId[]; // Reference to collections this post belongs to
-  featured: boolean;
-  visibility: 'public' | 'private' | 'community';
-  
-  // Summary-related fields
-  aiSummary?: {
-    summary: string;
-    hashtags: string[];
-    mood: string;
-    themes: string[];
-    generatedAt: Date;
-    summaryType: 'post' | 'cultural' | 'creative' | 'travel';
-  };
-  
-  // Cultural context
-  culturalContext?: {
-    significance: string;
-    historicalContext: string;
-    preservation: string;
-    period?: string;
-  };
-  
-  // Creative context
-  creativeContext?: {
-    narrative: string;
-    artisticElements: string[];
-    genre?: string;
-    inspiration?: string;
-  };
-  
-  // Travel context
-  travelContext?: {
-    attractions: string[];
-    recommendations: string[];
-    travelTips: string[];
-    season?: string;
-    travelStyle?: string;
-  };
-  
-  // Vector embeddings for similarity search
-  textEmbedding?: number[];
-  multimodalEmbedding?: number[];
-  culturalEmbedding?: number[];
-  
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-const locationSchema = new Schema({
-  latitude: { type: Number, required: true },
-  longitude: { type: Number, required: true },
-  name: { type: String }
-}, { _id: false });
-
+// Sub-schemas for embedding in the main Post document
 const commentSchema = new Schema({
   userId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
   userName: { type: String, required: true },
@@ -115,64 +43,67 @@ const travelContextSchema = new Schema({
   travelStyle: { type: String }
 }, { _id: false });
 
+// Main Post Interface
+export interface IPost extends Document {
+  _id: Types.ObjectId;
+  userId: Types.ObjectId;
+  title?: string;
+  description?: string;
+  mediaItems: Types.ObjectId[];
+  tags: string[];
+  location: {
+    type: 'Point';
+    coordinates: number[]; // [longitude, latitude]
+  };
+  likes: Types.ObjectId[];
+  comments: any[]; // Define more specific type if needed
+  collections: Types.ObjectId[];
+  featured: boolean;
+  visibility: 'public' | 'private' | 'community';
+  aiSummary?: any;
+  culturalContext?: any;
+  creativeContext?: any;
+  travelContext?: any;
+  textEmbedding?: number[];
+  multimodalEmbedding?: number[];
+  culturalEmbedding?: number[];
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// Main Post Schema
 const postSchema = new Schema<IPost>({
-  userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
-  title: { type: String, maxlength: 200 },
-  description: { type: String, maxlength: 1000 },
-  mediaItems: [{ type: Schema.Types.ObjectId, ref: 'MediaItem', required: true }],
-  tags: [{ type: String, index: true }],
-  location: locationSchema,
+  userId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+  title: { type: String },
+  description: { type: String },
+  mediaItems: [{ type: Schema.Types.ObjectId, ref: 'MediaItem' }],
+  tags: [{ type: String }],
+  location: {
+    type: {
+      type: String,
+      enum: ['Point'],
+      required: true
+    },
+    coordinates: {
+      type: [Number],
+      required: true
+    }
+  },
   likes: [{ type: Schema.Types.ObjectId, ref: 'User' }],
   comments: [commentSchema],
   collections: [{ type: Schema.Types.ObjectId, ref: 'Collection' }],
-  featured: { type: Boolean, default: false, index: true },
-  visibility: { 
-    type: String, 
-    enum: ['public', 'private', 'community'], 
-    default: 'public',
-    index: true 
-  },
-  
-  // AI Summary fields
+  featured: { type: Boolean, default: false },
+  visibility: { type: String, enum: ['public', 'private', 'community'], default: 'public' },
   aiSummary: aiSummarySchema,
   culturalContext: culturalContextSchema,
   creativeContext: creativeContextSchema,
   travelContext: travelContextSchema,
-  
-  // Vector embeddings
-  textEmbedding: {
-    type: [Number],
-    default: undefined,
-    index: false
-  },
-  multimodalEmbedding: {
-    type: [Number],
-    default: undefined,
-    index: false
-  },
-  culturalEmbedding: {
-    type: [Number],
-    default: undefined,
-    index: false
-  },
-  
-}, { 
-  timestamps: true
-});
+  textEmbedding: [Number],
+  multimodalEmbedding: [Number],
+  culturalEmbedding: [Number]
+}, { timestamps: true });
 
-// Add indexes for better query performance
-postSchema.index({ userId: 1, createdAt: -1 });
-postSchema.index({ featured: 1, visibility: 1 });
-postSchema.index({ 'location.latitude': 1, 'location.longitude': 1 });
-postSchema.index({ tags: 1 });
-postSchema.index({ 'aiSummary.summaryType': 1 });
-
-// Index for text search
-postSchema.index({
-  title: 'text',
-  description: 'text',
-  'aiSummary.summary': 'text',
-  tags: 'text'
-});
+// --- CRITICAL GEOSPATIAL INDEX ---
+postSchema.index({ location: '2dsphere' });
 
 export default model<IPost>('Post', postSchema);

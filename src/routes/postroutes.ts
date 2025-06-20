@@ -5,7 +5,8 @@ const upload = multer({ dest: 'uploads/' })
 import { 
   createposts, 
   getPosts, 
-  generatePostSummaryEndpoint
+  generatePostSummaryEndpoint,
+  getNearbyPosts
 } from "../controllers/postcontroller.js";
 import { authMiddleware } from "../middlewares/authmiddleware.js";
 
@@ -36,5 +37,8 @@ router.get("/", asyncHandler(getPosts));
 
 // Generate summary for existing post (protected)
 router.get("/:postId/generate-summary", withAuth(generatePostSummaryEndpoint));
+
+// Get posts near the user's location (protected)
+router.get("/nearby", withAuth(getNearbyPosts));
 
 export default router;

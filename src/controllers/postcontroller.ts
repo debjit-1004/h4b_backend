@@ -166,6 +166,162 @@ export const createposts = async (req: MulterRequest, res: Response) => {
     }
 };
 
+// Get posts with optional filtering and summary
+export const getPosts = async (req: Request, res: Response) => {
+    try {
+        const { 
+            page = 1, 
+            limit = 10, 
+            userId, 
+            featured, 
+            summaryType,
+            tags,
+            location 
+        } = req.query;
+
+        const pageNum = parseInt(page as string);
+        const limitNum = parseInt(limit as string);
+        const skip = (pageNum - 1) * limitNum;
+
+        // Build filter
+        const filter: any = { visibility: 'public' };
+        
+        if (userId) filter.userId = userId;
+        if (featured === 'true') filter.featured = true;
+        if (summaryType) filter['aiSummary.summaryType'] = summaryType;
+        if (tags) filter.tags = { $in: (tags as string).split(',') };
+        if (location) filter['location.name'] = new RegExp(location as string, 'i');
+
+        const posts = await Post.find(filter)
+            .populate('mediaItems')
+            .populate('userId', 'name email')
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limitNum);
+
+        const total = await Post.countDocuments(filter);
+
+        res.json({
+            posts,
+            pagination: {
+                page: pageNum,
+                limit: limitNum,
+                total,
+                pages: Math.ceil(total / limitNum)
+            }
+        });
+
+    } catch (error) {
+        console.error('Error getting posts:', error);
+        res.status(500).json({
+            message: 'Error retrieving posts',
+            error: error instanceof Error ? error.message : 'Unknown error'
+        });
+    }
+};
+
+// Generate summary for existing post
+export const generatePostSummaryEndpoint = async (req: Request, res: Response) => {
+    try {
+        const { postId } = req.params;
+        if (!postId) {
+            return res.status(400).json({ message: 'Post ID is required' });
+        }
+        let summaryType;
+
+        const post = await Post.findById(postId).populate('mediaItems');
+        if(post){
+            summaryType = await generateSummaryType(post.mediaItems);
+            console.log(`Determined summary type for post ${postId}: ${summaryType}`);
+        } 
+        if (!post) {
+            return res.status(404).json({ message: 'Post not found' });
+        }
+
+        // Check if user owns the post or is admin
+        const user = await req.civicAuth.getUser();
+        if (!user) {
+            return res.status(401).json({ message: 'User not authenticated' });
+        }
+
+        const existingUser = await User.findOne({ name: user.name });
+        if (!existingUser) {
+            return res.status(403).json({ message: 'Access denied' });
+        }
+        // Ensure both IDs are ObjectId for comparison
+        const postUserId = typeof post.userId === 'object' && post.userId !== null && 'equals' in post.userId
+            ? post.userId
+            : new mongoose.Types.ObjectId(post.userId);
+        const existingUserId = typeof existingUser._id === 'object' && existingUser._id !== null && 'equals' in existingUser._id
+            ? existingUser._id
+            : new mongoose.Types.ObjectId(String(existingUser._id));
+
+        if (!postUserId.equals(String(existingUserId))) {
+            return res.status(403).json({ message: 'Access denied' });
+        }
+
+        // Generate summary
+        await generatePostSummaryAsync(post, post.mediaItems, summaryType as string);
+
+        // Return updated post
+        const updatedPost = await Post.findById(postId).populate('mediaItems');
+        res.json({
+            message: 'Summary generated successfully',
+            post: updatedPost
+        });
+
+    } catch (error) {
+        console.error('Error generating post summary:', error);
+        res.status(500).json({
+            message: 'Error generating summary',
+            error: error instanceof Error ? error.message : 'Unknown error'
+        });
+    }
+};
+
+export const getNearbyPosts = async (req: Request, res: Response) => {
+  try {
+    // @ts-ignore
+    const userId = req.user.id;
+    const user = await User.findById(userId);
+
+    if (!user || !user.location || !user.location.coordinates) {
+      return res.status(400).json({ error: 'User location not set.' });
+    }
+
+    const userCoordinatesRaw = user.location.coordinates;
+    // Ensure coordinates is a tuple of exactly two numbers
+    const userCoordinates: [number, number] = [
+      Number(userCoordinatesRaw[0]),
+      Number(userCoordinatesRaw[1])
+    ];
+
+    const maxDistance = parseInt(req.query.maxDistance as string) || 50000;
+
+    const posts = await Post.aggregate([
+      {
+        $geoNear: {
+          near: {
+            type: 'Point',
+            coordinates: userCoordinates
+          },
+          distanceField: 'distance',
+          maxDistance: maxDistance,
+          spherical: true
+        }
+      },
+      { $sort: { distance: 1 } },
+      { $limit: 50 }
+    ]);
+
+    res.status(200).json({ posts });
+
+  } catch (error) {
+    console.error('Error getting nearby posts:', error);
+    res.status(500).json({ error: 'Failed to retrieve nearby posts' });
+  }
+};
+
 // Async function to generate and save post summary
 async function generatePostSummaryAsync(post: any, mediaItems: any[], summaryType: string) {
     try {
@@ -299,116 +455,3 @@ async function generatePostSummaryAsync(post: any, mediaItems: any[], summaryTyp
         console.error('Error generating post summary:', error);
     }
 }
-
-// Get posts with optional filtering and summary
-export const getPosts = async (req: Request, res: Response) => {
-    try {
-        const { 
-            page = 1, 
-            limit = 10, 
-            userId, 
-            featured, 
-            summaryType,
-            tags,
-            location 
-        } = req.query;
-
-        const pageNum = parseInt(page as string);
-        const limitNum = parseInt(limit as string);
-        const skip = (pageNum - 1) * limitNum;
-
-        // Build filter
-        const filter: any = { visibility: 'public' };
-        
-        if (userId) filter.userId = userId;
-        if (featured === 'true') filter.featured = true;
-        if (summaryType) filter['aiSummary.summaryType'] = summaryType;
-        if (tags) filter.tags = { $in: (tags as string).split(',') };
-        if (location) filter['location.name'] = new RegExp(location as string, 'i');
-
-        const posts = await Post.find(filter)
-            .populate('mediaItems')
-            .populate('userId', 'name email')
-            .sort({ createdAt: -1 })
-            .skip(skip)
-            .limit(limitNum);
-
-        const total = await Post.countDocuments(filter);
-
-        res.json({
-            posts,
-            pagination: {
-                page: pageNum,
-                limit: limitNum,
-                total,
-                pages: Math.ceil(total / limitNum)
-            }
-        });
-
-    } catch (error) {
-        console.error('Error getting posts:', error);
-        res.status(500).json({
-            message: 'Error retrieving posts',
-            error: error instanceof Error ? error.message : 'Unknown error'
-        });
-    }
-};
-
-// Generate summary for existing post
-export const generatePostSummaryEndpoint = async (req: Request, res: Response) => {
-    try {
-        const { postId } = req.params;
-        if (!postId) {
-            return res.status(400).json({ message: 'Post ID is required' });
-        }
-        let summaryType;
-
-        const post = await Post.findById(postId).populate('mediaItems');
-        if(post){
-            summaryType = await generateSummaryType(post.mediaItems);
-            console.log(`Determined summary type for post ${postId}: ${summaryType}`);
-        } 
-        if (!post) {
-            return res.status(404).json({ message: 'Post not found' });
-        }
-
-        // Check if user owns the post or is admin
-        const user = await req.civicAuth.getUser();
-        if (!user) {
-            return res.status(401).json({ message: 'User not authenticated' });
-        }
-
-        const existingUser = await User.findOne({ name: user.name });
-        if (!existingUser) {
-            return res.status(403).json({ message: 'Access denied' });
-        }
-        // Ensure both IDs are ObjectId for comparison
-        const postUserId = typeof post.userId === 'object' && post.userId !== null && 'equals' in post.userId
-            ? post.userId
-            : new mongoose.Types.ObjectId(post.userId);
-        const existingUserId = typeof existingUser._id === 'object' && existingUser._id !== null && 'equals' in existingUser._id
-            ? existingUser._id
-            : new mongoose.Types.ObjectId(String(existingUser._id));
-
-        if (!postUserId.equals(String(existingUserId))) {
-            return res.status(403).json({ message: 'Access denied' });
-        }
-
-        // Generate summary
-        await generatePostSummaryAsync(post, post.mediaItems, summaryType as string);
-
-        // Return updated post
-        const updatedPost = await Post.findById(postId).populate('mediaItems');
-        res.json({
-            message: 'Summary generated successfully',
-            post: updatedPost
-        });
-
-    } catch (error) {
-        console.error('Error generating post summary:', error);
-        res.status(500).json({
-            message: 'Error generating summary',
-            error: error instanceof Error ? error.message : 'Unknown error'
-        });
-    }
-};

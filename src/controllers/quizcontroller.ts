@@ -50,3 +50,16 @@ export const submitQuizAnswer = async (req: Request, res: Response) => {
         res.status(500).json({ message: 'Server error', error });
     }
 };
+
+export const getLeaderboard = async (req: Request, res: Response) => {
+    try {
+        const leaderboard = await User.find()
+            .sort({ score: -1 })
+            .limit(10)
+            .select('username score'); // Adjust fields as needed
+
+        res.json(leaderboard);
+    } catch (error) {
+        res.status(500).json({ message: 'Server error', error });
+    }
+};

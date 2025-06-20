@@ -13,6 +13,7 @@ import postroutes from './routes/postroutes.js';
 import eventroutes from './routes/eventroutes.js';
 import collectionroutes from './routes/collectionroutes.js';
 import vectorSearchRoutes from './routes/vectorSearchRoutes.js';
+import tagroutes from './routes/tagroutes.js';
 import { connectDB } from './dbconfig/dbconnect.js';
 
 dotenv.config();
@@ -221,6 +222,12 @@ app.use(
   },
   vectorSearchRoutes
 );
+
+// Tag routes
+app.use('/api/tags', tagroutes);
+
+// Civic Uniqueness Pass routes
+// ...existing code...
 
 // Global error handler
 app.use((error: Error, req: Request, res: Response, next: NextFunction) => {

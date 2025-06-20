@@ -304,7 +304,7 @@ export const generateCollectionSummary = async (req: Request, res: Response) => 
                 description: item.description
             })),
             tags: post.tags,
-            location: post.location?.name,
+            location: post.location ? `${post.location.coordinates[1]},${post.location.coordinates[0]}` : undefined,
             timestamp: post.createdAt,
             author: post.userId.toString()
         }));

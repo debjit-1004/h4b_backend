@@ -7,6 +7,7 @@ export interface IUser extends Document {
   password?: string;
   lastLogout?: Date;
   score: number;
+  profilePicture?: string; // Added for Google profile picture
   location: {
     type: 'Point';
     coordinates: number[]; // [longitude, latitude]
@@ -20,6 +21,7 @@ const userSchema = new Schema<IUser>({
   email: { type: String, required: true, unique: true, index: true },
   googleId: { type: String, unique: true, sparse: true }, // Added for Google OAuth
   password: { type: String, required: false },
+  profilePicture: { type: String }, // URL to profile picture
   lastLogout: { type: Date },
   score: { type: Number, default: 0 },
   location: {

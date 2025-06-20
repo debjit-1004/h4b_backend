@@ -3,8 +3,10 @@ import * as dotenv from 'dotenv';
 import morgan from 'morgan';
 import cors from 'cors';
 import router from './routes/index.js';
-import { CookieStorage, CivicAuth } from '@civic/auth/server';
 import cookieParser from 'cookie-parser';
+import session from 'express-session';
+import passport from 'passport';
+import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import { config } from './authConfig.js';
 import { authMiddleware } from './middlewares/authmiddleware.js';
 import authrouter from './routes/authroutes.js';
@@ -15,6 +17,7 @@ import collectionroutes from './routes/collectionroutes.js';
 import vectorSearchRoutes from './routes/vectorSearchRoutes.js';
 import tagroutes from './routes/tagroutes.js';
 import { connectDB } from './dbconfig/dbconnect.js';
+import User from './models/User.js';
 
 dotenv.config();
 
@@ -26,95 +29,84 @@ connectDB();
 // Middleware
 app.use(express.json());
 app.use(morgan('dev'));
-app.use(cors());
+app.use(cors({
+  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  credentials: true
+}));
 app.use(cookieParser());
 
-class ExpressCookieStorage extends CookieStorage {
-  constructor(private req: Request, private res: Response) {
-    super({
-      // secure: process.env.NODE_ENV === 'production', // Example: make secure based on env
-      secure: false, // Keep as per original for now
-      // httpOnly: true, // Recommended for security
-      // sameSite: 'lax' // Recommended for security
-    });
+// Session setup for Passport
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'bengali-heritage-secret',
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: process.env.NODE_ENV === 'production', // Use secure cookies in production
+    maxAge: 24 * 60 * 60 * 1000 // 24 hours
   }
+}));
 
-  async get(key: string): Promise<string | null> {
-    // First check normal cookies
-    const cookieValue = this.req.cookies[key];
-    if (cookieValue) {
-      return Promise.resolve(cookieValue);
-    }
-    
-    // If not found, try to parse from the Cookie header
+// Initialize Passport
+app.use(passport.initialize());
+app.use(passport.session());
+
+// Passport configuration
+passport.use(new GoogleStrategy({
+    clientID: config.googleClientId,
+    clientSecret: config.googleClientSecret,
+    callbackURL: config.callbackURL
+  },
+  async (accessToken: string, refreshToken: string, profile: any, done: (error: any, user?: any) => void) => {
     try {
-      const cookieHeader = this.req.headers.cookie;
-      if (cookieHeader && typeof cookieHeader === 'string') {
-        console.log(`Looking for cookie: ${key} in header: ${cookieHeader}`);
-        const cookies = cookieHeader.split(';').map(c => c.trim());
-        for (const cookie of cookies) {
-          const [name, value] = cookie.split('=');
-          if (name === key && value) {
-            console.log(`Found ${key} in Cookie header: ${value}`);
-            return Promise.resolve(value);
-          }
+      // Check if user exists in our database
+      let user = await User.findOne({ googleId: profile.id });
+      
+      if (user) {
+        // User exists, return the user
+        return done(null, user);
+      }
+      
+      // Check if user with same email exists (possible migration from previous auth system)
+      if (profile.emails && profile.emails.length > 0) {
+        const email = profile.emails[0].value;
+        user = await User.findOne({ email: email });
+        
+        if (user) {
+          // Update existing user with Google ID
+          user.googleId = profile.id;
+          await user.save();
+          return done(null, user);
         }
       }
+      
+      // Create new user
+      const newUser = new User({
+        googleId: profile.id,
+        name: profile.displayName || 'Heritage User',
+        email: profile.emails && profile.emails.length > 0 ? profile.emails[0].value : `user-${profile.id}@example.com`, // Fallback if email not provided
+      });
+      
+      await newUser.save();
+      return done(null, newUser);
     } catch (error) {
-      console.error('Error parsing Cookie header:', error);
+      return done(error, false);
     }
-    
-    return Promise.resolve(null);
   }
+));
 
-  async set(key: string, value: string): Promise<void> {
-    // Use this.settings from the base class
-    this.res.cookie(key, value, this.settings);
+// Serialize and deserialize user for session management
+passport.serializeUser((user: Express.User, done: (err: any, id?: string) => void) => {
+  done(null, user._id);
+});
+
+passport.deserializeUser(async (id: string, done: (err: any, user?: any) => void) => {
+  try {
+    const user = await User.findById(id);
+    done(null, user);
+  } catch (error) {
+    done(error, null);
   }
-
-  async delete(key: string): Promise<void> {
-    // Use this.settings from the base class
-    this.res.clearCookie(key, this.settings);
-  }
-}
-
-// Add Civic Auth middleware before routes
-// Add CivicAuth properties via type intersection in middleware, not by extending Request interface
-type CivicAuthRequest = Request & {
-  storage?: ExpressCookieStorage;
-  civicAuth?: CivicAuth;
-};
-
-interface CivicAuthResponse extends Response {}
-
-app.use(
-  '/',
-  ((
-    req: CivicAuthRequest,
-    res: CivicAuthResponse,
-    next: NextFunction
-  ) => {
-    try {
-      req.storage = new ExpressCookieStorage(req, res);
-
-      // Validate config before creating CivicAuth
-      if (!config.clientId) {
-        console.error('Config validation failed - clientId is missing');
-        return next(new Error('Civic Auth configuration error'));
-      }
-
-      req.civicAuth = new CivicAuth(req.storage, config);
-      console.log(
-        'Civic Auth initialized successfully with client ID:',
-        config.clientId?.substring(0, 10) + '...'
-      );
-      next();
-    } catch (error) {
-      console.error('Error initializing Civic Auth:', error);
-      next(error);
-    }
-  }) as express.RequestHandler
-);
+});
 
 // Public routes
 app.get('/', (req: Request, res: Response) => {
@@ -226,7 +218,7 @@ app.use(
 // Tag routes
 app.use('/api/tags', tagroutes);
 
-// Civic Uniqueness Pass routes
+// Google OAuth authentication routes
 // ...existing code...
 
 // Global error handler

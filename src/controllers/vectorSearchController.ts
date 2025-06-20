@@ -17,9 +17,8 @@ import {
  * Initialize vector indexes for Bengali Heritage platform
  */
 export const initializeVectorIndexes = async (req: Request, res: Response) => {
-  try {
-    // Verify admin permissions
-    const user = await req.civicAuth?.getUser();
+  try {    // Verify admin permissions
+    const user = req.user;
     if (!user) {
       return res.status(401).json({ message: 'Authentication required' });
     }

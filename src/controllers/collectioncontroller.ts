@@ -19,12 +19,12 @@ export const createCollection = async (req: Request, res: Response) => {
     try {
         const { name, description, isPrivate, slug, coverImage, icon } = req.body;
         
-        const user = await req.civicAuth.getUser();
+        const user = req.user;
         if (!user?.name) {
             return res.status(401).json({ message: 'User not authenticated' });
         }
 
-        const existingUser = await User.findOne({ name: user.name });
+        const existingUser = await User.findOne({ _id: user._id });
         if (!existingUser) {
             return res.status(404).json({ message: 'User not found in database' });
         }
@@ -177,12 +177,12 @@ export const addMediaToCollection = async (req: Request, res: Response) => {
         const { collectionId } = req.params;
         const { mediaId, featured = false } = req.body;
         
-        const user = await req.civicAuth.getUser();
+        const user = req.user;
         if (!user?.name) {
             return res.status(401).json({ message: 'User not authenticated' });
         }
 
-        const existingUser = await User.findOne({ name: user.name });
+        const existingUser = await User.findOne({ _id: user._id });
         if (!existingUser) {
             return res.status(404).json({ message: 'User not found in database' });
         }
@@ -221,15 +221,14 @@ export const addMediaToCollection = async (req: Request, res: Response) => {
 
 // Remove media from collection
 export const removeMediaFromCollection = async (req: Request, res: Response) => {
-    try {
-        const { collectionId, mediaId } = req.params;
+    try {        const { collectionId, mediaId } = req.params;
         
-        const user = await req.civicAuth.getUser();
+        const user = req.user;
         if (!user?.name) {
             return res.status(401).json({ message: 'User not authenticated' });
         }
 
-        const existingUser = await User.findOne({ name: user.name });
+        const existingUser = await User.findOne({ _id: user._id });
         if (!existingUser) {
             return res.status(404).json({ message: 'User not found in database' });
         }
@@ -338,12 +337,12 @@ export const joinCollection = async (req: Request, res: Response) => {
     try {
         const { collectionId } = req.params;
         
-        const user = await req.civicAuth.getUser();
-        if (!user?.name) {
+        if (!req.isAuthenticated || !req.isAuthenticated()) {
             return res.status(401).json({ message: 'User not authenticated' });
         }
 
-        const existingUser = await User.findOne({ name: user.name });
+        const user = req.user as Express.User;
+        const existingUser = await User.findById(user._id);
         if (!existingUser) {
             return res.status(404).json({ message: 'User not found in database' });
         }
@@ -381,12 +380,12 @@ export const leaveCollection = async (req: Request, res: Response) => {
     try {
         const { collectionId } = req.params;
         
-        const user = await req.civicAuth.getUser();
-        if (!user?.name) {
+        if (!req.isAuthenticated || !req.isAuthenticated()) {
             return res.status(401).json({ message: 'User not authenticated' });
         }
 
-        const existingUser = await User.findOne({ name: user.name });
+        const user = req.user as Express.User;
+        const existingUser = await User.findById(user._id);
         if (!existingUser) {
             return res.status(404).json({ message: 'User not found in database' });
         }
@@ -460,12 +459,12 @@ export const createEventCollection = async (req: Request, res: Response) => {
     const { eventId } = req.params;
     const { name, description, tags, slug, coverImage, icon } = req.body;
     
-    const user = await req.civicAuth.getUser();
-    if (!user?.name) {
+    if (!req.isAuthenticated || !req.isAuthenticated()) {
       return res.status(401).json({ message: 'User not authenticated' });
     }
 
-    const existingUser = await User.findOne({ name: user.name });
+    const user = req.user as Express.User;
+    const existingUser = await User.findById(user._id);
     if (!existingUser) {
       return res.status(404).json({ message: 'User not found in database' });
     }
@@ -531,12 +530,12 @@ export const addPostsToEventCollection = async (req: Request, res: Response) => 
       return res.status(400).json({ message: 'Post IDs array is required' });
     }
     
-    const user = await req.civicAuth.getUser();
-    if (!user?.name) {
+    if (!req.isAuthenticated || !req.isAuthenticated()) {
       return res.status(401).json({ message: 'User not authenticated' });
     }
-    
-    const existingUser = await User.findOne({ name: user.name });
+
+    const user = req.user as Express.User;
+    const existingUser = await User.findById(user._id);
     if (!existingUser) {
       return res.status(404).json({ message: 'User not found in database' });
     }

@@ -3,7 +3,8 @@ import { Schema, model, Document } from 'mongoose';
 export interface IUser extends Document {
   name?: string;
   email: string;
-  password?: string; // Made password optional for Civic Auth
+  googleId?: string; // Added for Google OAuth
+  password?: string;
   lastLogout?: Date;
   score: number;
   location: {
@@ -17,7 +18,8 @@ export interface IUser extends Document {
 const userSchema = new Schema<IUser>({
   name: { type: String },
   email: { type: String, required: true, unique: true, index: true },
-  password: { type: String, required: false }, // Changed to false
+  googleId: { type: String, unique: true, sparse: true }, // Added for Google OAuth
+  password: { type: String, required: false },
   lastLogout: { type: Date },
   score: { type: Number, default: 0 },
   location: {

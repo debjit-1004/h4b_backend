@@ -1,81 +1,46 @@
 import { Request, Response } from 'express';
 import User from '../models/User.js';
 import * as bcrypt from 'bcrypt';
+import { config } from '../authConfig.js';
+// var GoogleStrategy = require('passport-google-oauth20').Strategy;
 
 /**
- * Handle user registration/login after successful Civic Auth
- * This is called after the OAuth callback to ensure user exists in our database
+ * Handle successful Google OAuth login
+ * Called after the OAuth callback to ensure user exists in our database
  */
-export const handleCivicAuthSuccess = async (req: Request, res: Response) => {
+export const handleGoogleAuthSuccess = (req: Request, res: Response) => {
   try {
-    // Get user info from Civic Auth
-    const civicUser = await req.civicAuth.getUser();
-    
-    if (!civicUser) {
+    // User is already attached to the request by Passport
+    if (!req.user) {
       return res.status(401).json({ 
-        error: 'No user information from Civic Auth' 
+        error: 'No user information from Google Auth' 
       });
     }
 
-    // Extract user info from Civic Auth response
-    const { 
-      email, 
-      name = 'Heritage User', 
-      id: civicId 
-    } = civicUser;
-
-    if (!email) {
-      return res.status(400).json({ 
-        error: 'Email is required from Civic Auth' 
-      });
+    const user = req.user as Express.User;
+    
+    // Check if redirect is requested via query parameter or header
+    const redirectRequested = req.query.redirect === 'true' || 
+                             req.headers['x-want-redirect'] === 'true';
+    
+    if (redirectRequested) {
+      // Redirect to frontend home page or dashboard
+      const redirectUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+      return res.redirect(redirectUrl);
     }
 
-    // Check if user already exists in our database
-    let existingUser = await User.findOne({ email });
-
-    if (existingUser) {
-      // User exists, just log the successful login
-      console.log(`Existing user logged in: ${email}`);
-      
-      return res.status(200).json({
-        message: 'Login successful',
-        user: {
-          id: existingUser._id,
-          name: existingUser.name,
-          email: existingUser.email,
-          createdAt: existingUser.createdAt
-        },
-        isNewUser: false
-      });
-    }
-
-    // Create new user in our database
-    // Generate a temporary password hash (since we're using Civic Auth)
-    const tempPassword = `civic_auth_${civicId}_${Date.now()}`;
-    const hashedPassword = await bcrypt.hash(tempPassword, 10);
-
-    const newUser = new User({
-      name,
-      email,
-      password: hashedPassword, // This won't be used for login, just for schema compliance
-    });
-
-    const savedUser = await newUser.save();
-    console.log(`New user created: ${email}`);
-
-    return res.status(201).json({
-      message: 'User created and logged in successfully',
+    // Otherwise return JSON response
+    return res.status(200).json({
+      message: 'Login successful',
       user: {
-        id: savedUser._id,
-        name: savedUser.name,
-        email: savedUser.email,
-        createdAt: savedUser.createdAt
-      },
-      isNewUser: true
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        googleId: user.googleId
+      }
     });
-
   } catch (error) {
-    console.error('Error handling Civic Auth success:', error);
+    console.error('Error handling Google Auth success:', error);
     return res.status(500).json({
       error: 'Failed to process user login',
       details: error instanceof Error ? error.message : 'Unknown error'
@@ -85,19 +50,30 @@ export const handleCivicAuthSuccess = async (req: Request, res: Response) => {
 
 /**
  * Handle user logout
- * Clean up any additional user session data if needed
  */
 export const handleLogout = async (req: Request, res: Response): Promise<void> => {
   try {
     // Get user info before logout for logging
-    // This might fail if Civic session is already invalidated, so handle potential errors.
-    let userEmail: string | undefined;
-    try {
-      const civicUser = await req.civicAuth.getUser();
-      userEmail = civicUser?.email;
-    } catch (e) {
-      console.warn('Could not retrieve Civic user during logout, possibly already logged out from Civic.', e);
-    }
+    const userEmail = req.user?.email;
+    
+    // Passport logout
+    req.logout((err: Error) => {
+      if (err) {
+        console.error('Error during logout:', err);
+        return res.status(500).json({
+          error: 'Failed to logout',
+          details: err instanceof Error ? err.message : 'Unknown error'
+        });
+      }
+      
+      console.log(`User logged out: ${userEmail || 'Unknown user'}`);
+      
+      // Return a JSON response
+      res.status(200).json({
+        message: 'Logged out successfully',
+        redirectUrl: config.postLogoutRedirectUrl
+      });
+    });
     
     if (userEmail) {
       console.log(`User logging out: ${userEmail}`);
@@ -113,86 +89,64 @@ export const handleLogout = async (req: Request, res: Response): Promise<void> =
         // Don't fail the logout for this
       }
     } else {
-      console.log('Logout initiated for a user not identified via Civic session or session already cleared.');
+      console.log('Logout initiated for a user not identified via session or session already cleared.');
     }
-
-    // Do not send a response from here. The caller (in authroutes.ts) will handle the redirect.
-    // If a critical error occurs that must stop the logout, throw an error.
-    // For example: if (!req.civicAuth) throw new Error("CivicAuth not available");
-
   } catch (error) {
-    console.error('Error during internal logout steps:', error);
-    // Re-throw critical errors to be caught by the asyncHandler in authroutes.ts
-    if (error instanceof Error && error.message.includes("CivicAuth not available")) {
-        throw error;
-    }
-    // For other errors, log them but allow the Civic logout redirect to proceed if possible.
-  }
-};
-
-/**
- * Get current user information from our database
- */
-export const getCurrentUser = async (req: Request, res: Response) => {
-  try {
-    const civicUser = await req.civicAuth.getUser();
-    
-    if (!civicUser?.email) {
-      return res.status(401).json({ error: 'Not authenticated' });
-    }
-
-    const user = await User.findOne({ email: civicUser.email })
-      .select('-password'); // Exclude password from response
-
-    if (!user) {
-      return res.status(404).json({ error: 'User not found in database' });
-    }
-
-    return res.status(200).json({
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        createdAt: user.createdAt,
-        updatedAt: user.updatedAt
-      },
-      civicInfo: {
-        name: civicUser.name,
-        email: civicUser.email,
-        id: civicUser.id
-      }
-    });
-
-  } catch (error) {
-    console.error('Error getting current user:', error);
-    return res.status(500).json({
-      error: 'Failed to get user information',
+    console.error('Error in handleLogout:', error);
+    res.status(500).json({
+      error: 'Failed to logout',
       details: error instanceof Error ? error.message : 'Unknown error'
     });
   }
 };
 
 /**
- * Update user profile information
+ * Get current user info
+ */
+export const getCurrentUser = async (req: Request, res: Response) => {
+  try {
+    if (!req.isAuthenticated || !req.isAuthenticated()) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+    
+    const user = req.user as Express.User;
+    
+    res.status(200).json({
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email
+      }
+    });
+  } catch (error) {
+    console.error('Error in getCurrentUser:', error);
+    res.status(500).json({
+      error: 'Failed to get current user',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+};
+
+/**
+ * Update user profile
  */
 export const updateUserProfile = async (req: Request, res: Response) => {
   try {
-    const civicUser = await req.civicAuth.getUser();
-    
-    if (!civicUser?.email) {
+    if (!req.isAuthenticated || !req.isAuthenticated()) {
       return res.status(401).json({ error: 'Not authenticated' });
     }
-
+    
+    const user = req.user as Express.User;
     const { name } = req.body;
-
-    if (!name || name.trim().length === 0) {
+    
+    if (!name) {
       return res.status(400).json({ error: 'Name is required' });
     }
-
-    const updatedUser = await User.findOneAndUpdate(
-      { email: civicUser.email },
-      { name: name.trim() },
-      { new: true, select: '-password' }
+    
+    const updatedUser = await User.findByIdAndUpdate(
+      user._id, 
+      { name },
+      { new: true }
     );
 
     if (!updatedUser) {

@@ -12,16 +12,16 @@ const router = Router();
 async function processMedia(req: Request, res: Response): Promise<void> {
   try {
     const { mediaId } = req.params;
-    
-    // Get user info from Civic Auth
-    const user = await req.civicAuth.getUser();
-    if (!user) {
+      // Get user info from Passport
+    if (!req.isAuthenticated || !req.isAuthenticated()) {
       res.status(401).json({ error: 'Unauthorized - User not authenticated' });
       return;
     }
     
-    // Use a unique identifier from the user object
-    const userId = String(user.id || user.email || 'unknown');
+    const user = req.user as Express.User;
+    
+    // Use the user's ID
+    const userId = String(user._id);
     
     // Check if media exists and belongs to the user
     const mediaItem = await MediaItem.findOne({
@@ -98,9 +98,9 @@ async function createVideoHighlights(req: Request, res: Response): Promise<void>
       return;
     }
     
-    // Get user info from Civic Auth (optional - remove if not needed)
-    const user = await req.civicAuth?.getUser();
-    const userId = user ? String(user.id || user.email || 'unknown') : 'anonymous';
+    // Get user info from Passport (optional - remove if not needed)
+    const user = req.user;
+    const userId = user ? String(user._id || user.email || 'unknown') : 'anonymous';
     
     console.log(`Creating video highlights for user: ${userId}`);
     console.log(`Processing video: ${cloudinaryUrl}`);
@@ -166,14 +166,14 @@ router.post('/video/process-complete', withAuth(async (req: Request, res: Respon
       return;
     }
     
-    // Get user info from Civic Auth
-    const user = await req.civicAuth?.getUser();
+    // Get user info from Passport
+    const user = req.user;
     if (!user) {
       res.status(401).json({ error: 'Unauthorized - User not authenticated' });
       return;
     }
     
-    const userId = String(user.id || user.email || 'unknown');
+    const userId = String(user._id || user.email || 'unknown');
     console.log(`Processing complete video workflow for user: ${userId}`);
     
     // Process video: Extract highlights + Upload + Save to DB
@@ -239,14 +239,14 @@ router.get('/media/:mediaItemId', asyncHandler(async (req: Request, res: Respons
 // NEW: Get all video highlights for a user
 router.get('/user/video-highlights', withAuth(async (req: Request, res: Response): Promise<void> => {
   try {
-    // Get user info from Civic Auth
-    const user = await req.civicAuth?.getUser();
+    // Get user info from Passport
+    const user = req.user;
     if (!user) {
       res.status(401).json({ error: 'Unauthorized - User not authenticated' });
       return;
     }
     
-    const userId = String(user.id || user.email || 'unknown');
+    const userId = String(user._id || user.email || 'unknown');
     
     const result = await getUserVideoHighlights(userId);
     

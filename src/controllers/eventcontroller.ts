@@ -12,12 +12,12 @@ import mongoose from 'mongoose';
 // Create community event
 export const createCommunityEvent = async (req: Request, res: Response) => {
     try {
-        const user = await req.civicAuth.getUser();
+        const user = req.user;
         if (!user?.name) {
             return res.status(401).json({ message: 'User not authenticated' });
         }
 
-        const existingUser = await User.findOne({ name: user.name });
+        const existingUser = await User.findOne({ _id: user._id });
         if (!existingUser) {
             return res.status(404).json({ message: 'User not found in database' });
         }
@@ -236,12 +236,12 @@ export const joinEvent = async (req: Request, res: Response) => {
     try {
         const { eventId } = req.params;
         
-        const user = await req.civicAuth.getUser();
+        const user = req.user;
         if (!user?.name) {
             return res.status(401).json({ message: 'User not authenticated' });
         }
 
-        const existingUser = await User.findOne({ name: user.name });
+        const existingUser = await User.findOne({ _id: user._id });
         if (!existingUser) {
             return res.status(404).json({ message: 'User not found in database' });
         }
@@ -289,12 +289,12 @@ export const leaveEvent = async (req: Request, res: Response) => {
     try {
         const { eventId } = req.params;
         
-        const user = await req.civicAuth.getUser();
+        const user = req.user;
         if (!user?.name) {
             return res.status(401).json({ message: 'User not authenticated' });
         }
 
-        const existingUser = await User.findOne({ name: user.name });
+        const existingUser = await User.findOne({ _id: user._id });
         if (!existingUser) {
             return res.status(404).json({ message: 'User not found in database' });
         }

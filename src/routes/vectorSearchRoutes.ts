@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 import { 
   initializeVectorIndexes,
   searchSimilarPosts,
@@ -24,7 +24,9 @@ const adminAuth = (req: any, res: any, next: any) => {
   authMiddleware(req, res, (err?: any) => {
     if (err) return next(err);
     
-    // Add admin check here if needed
+    // In the future, you can add admin role check here
+    // Example: if (req.user && (req.user as Express.User).role !== 'admin') return res.status(403).json({ error: 'Admin access required' });
+    
     next();
   });
 };

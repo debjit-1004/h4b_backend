@@ -1,7 +1,6 @@
 import { Request, Response } from 'express';
 import Quiz from '../models/Quiz.js';
 import User from '../models/User.js';
-// import { IReq } from '../types/express.js';
 
 export const getQuizQuestion = async (req: Request, res: Response) => {
   try {
@@ -21,8 +20,13 @@ export const getQuizQuestion = async (req: Request, res: Response) => {
 
 export const submitQuizAnswer = async (req: Request, res: Response) => {
     const { questionId, answer } = req.body;
-    // @ts-ignore
-    const userId = req.user._id;
+    
+    if (!req.isAuthenticated || !req.isAuthenticated()) {
+        return res.status(401).json({ message: 'User not authenticated' });
+    }
+    
+    const user = req.user as Express.User;
+    const userId = user._id;
 
     try {
         const question = await Quiz.findById(questionId);

@@ -47,15 +47,13 @@ export const createposts = async (req: MulterRequest, res: Response) => {
             const fileurl = cloudinaryresult.result.url;
             posts.push(fileurl);
             console.log("FILE URL", fileurl);
-        }
-
-        // Get user information
-        const user = await req.civicAuth.getUser();
+        }        // Get user information
+        const user = req.user;
         if (!user?.name) {
             return res.status(401).json({ message: 'User not authenticated' });
         }
 
-        const existingUser = await User.findOne({ name: user.name });
+        const existingUser = await User.findOne({ _id: user._id });
         if (!existingUser) {
             return res.status(404).json({ message: 'User not found in database' });
         }
@@ -235,15 +233,13 @@ export const generatePostSummaryEndpoint = async (req: Request, res: Response) =
         } 
         if (!post) {
             return res.status(404).json({ message: 'Post not found' });
-        }
-
-        // Check if user owns the post or is admin
-        const user = await req.civicAuth.getUser();
+        }        // Check if user owns the post or is admin
+        const user = req.user;
         if (!user) {
             return res.status(401).json({ message: 'User not authenticated' });
         }
 
-        const existingUser = await User.findOne({ name: user.name });
+        const existingUser = await User.findOne({ _id: user._id });
         if (!existingUser) {
             return res.status(403).json({ message: 'Access denied' });
         }
@@ -278,15 +274,14 @@ export const generatePostSummaryEndpoint = async (req: Request, res: Response) =
     }
 };
 
-export const getNearbyPosts = async (req: Request, res: Response) => {
-  try {
-    const authUser = await req.civicAuth.getUser();
+export const getNearbyPosts = async (req: Request, res: Response) => {  try {
+    const authUser = req.user;
     console.log('Authenticated user:', authUser);
     if (!authUser) {
       return res.status(401).json({ error: 'User not authenticated.' });
     }
     
-    const user = await User.findOne({ name: authUser.name });
+    const user = await User.findOne({ _id: authUser._id });
 
     if (!user || !user.location || !user.location.coordinates) {
       return res.status(400).json({ error: 'User location not set.' });

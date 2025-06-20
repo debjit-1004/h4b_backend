@@ -3,18 +3,21 @@ import * as dotenv from 'dotenv';
 // Load environment variables
 dotenv.config();
 
-const clientId = process.env.CIVIC_AUTH_CLIENT_ID;
+const googleClientId = process.env.GOOGLE_CLIENT_ID;
+const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
+const callbackURL = process.env.GOOGLE_CALLBACK_URL || 'http://localhost:10000/auth/google/callback';
 
-if (!clientId) {
-  console.error('CIVIC_AUTH_CLIENT_ID not found in environment variables');
-  console.error('Available env vars:', Object.keys(process.env).filter(key => key.includes('CIVIC')));
-  throw new Error('CIVIC_AUTH_CLIENT_ID environment variable is required');
+if (!googleClientId || !googleClientSecret) {
+  console.error('Google OAuth credentials not found in environment variables');
+  console.error('Available env vars:', Object.keys(process.env).filter(key => key.includes('GOOGLE')));
+  throw new Error('GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET environment variables are required');
 }
 
-console.log('Civic Auth Client ID loaded:', clientId);
+console.log('Google OAuth credentials loaded');
 
 export const config = {
-    clientId: clientId,
-    redirectUrl: 'http://localhost:10000/auth/callback',
-    postLogoutRedirectUrl: 'http://192.168.233.236/(auth)/login' // Updated to point to frontend login
+    googleClientId,
+    googleClientSecret,
+    callbackURL,
+    postLogoutRedirectUrl: 'http://192.168.233.236/(auth)/login' // Frontend login page
 };
